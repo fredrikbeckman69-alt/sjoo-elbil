@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Compass, BatteryCharging, Clock, ShieldCheck, Sparkles, Coffee, CheckCircle2 } from 'lucide-react';
 import { VehicleProfile, TripConditions } from '../types';
-import { calculateRoadTripAnalysis, SWEDISH_ROUTE_PRESETS } from '../utils/calculations';
+import { calculateRoadTripAnalysis } from '../utils/calculations';
 
 interface RoadTripPlannerProps {
   distanceMil: number;
@@ -10,7 +10,7 @@ interface RoadTripPlannerProps {
   petrolPricePerLiter?: number;
   homePricePerKwh?: number;
   fastPricePerKwh?: number;
-  onSelectRoutePreset: (start: string, dest: string, distanceMil: number) => void;
+  onSelectRoutePreset?: (start: string, dest: string, distanceMil: number) => void;
 }
 
 export const RoadTripPlanner: React.FC<RoadTripPlannerProps> = ({
@@ -20,12 +20,9 @@ export const RoadTripPlanner: React.FC<RoadTripPlannerProps> = ({
   petrolPricePerLiter = 17.69,
   homePricePerKwh = 1.15,
   fastPricePerKwh = 4.95,
-  onSelectRoutePreset,
 }) => {
   const [startBatteryPercent, setStartBatteryPercent] = useState<number>(100);
   const [arrivalBufferPercent, setArrivalBufferPercent] = useState<number>(15);
-
-  const roadTripPresets = SWEDISH_ROUTE_PRESETS;
 
   const analysis = calculateRoadTripAnalysis(
     distanceMil,
@@ -66,37 +63,6 @@ export const RoadTripPlanner: React.FC<RoadTripPlannerProps> = ({
         <div className="flex items-center gap-1.5 text-xs text-slate-400 bg-slate-950/80 px-3 py-1.5 rounded-xl border border-slate-800">
           <ShieldCheck className="w-4 h-4 text-emerald-400" />
           <span>Ingen räckviddsångest: {arrivalBufferPercent}% säkerhetsmarginal</span>
-        </div>
-      </div>
-
-      {/* Swedish Long Trip Presets */}
-      <div className="mb-6">
-        <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block mb-2">
-          Populära svenska långresor (klicka för att testa):
-        </span>
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
-          {roadTripPresets.map((preset) => {
-            const isSelected = Math.abs(distanceMil - preset.distanceMil) < 1;
-            return (
-              <button
-                key={preset.name}
-                type="button"
-                onClick={() => onSelectRoutePreset(preset.start, preset.dest, preset.distanceMil)}
-                className={`p-2.5 rounded-xl border text-left transition flex flex-col justify-between ${
-                  isSelected
-                    ? 'bg-cyan-500/20 border-cyan-500/60 text-white shadow-md'
-                    : 'bg-slate-950/50 border-slate-800 text-slate-300 hover:bg-slate-800 hover:border-slate-700'
-                }`}
-              >
-                <div className="flex items-center justify-between w-full">
-                  <span className="text-base">{preset.icon}</span>
-                  <span className="text-[10px] font-mono-numbers font-bold text-cyan-400">{preset.distanceMil} mil</span>
-                </div>
-                <div className="text-xs font-bold mt-1 text-white truncate">{preset.name}</div>
-                <div className="text-[10px] text-slate-400 truncate">{preset.start} ➔ {preset.dest}</div>
-              </button>
-            );
-          })}
         </div>
       </div>
 

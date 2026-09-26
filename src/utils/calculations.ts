@@ -88,24 +88,6 @@ export const DEFAULT_SCENARIOS: ChargingScenario[] = [
   },
 ];
 
-export interface SwedishRoutePreset {
-  name: string;
-  start: string;
-  dest: string;
-  distanceMil: number;
-  icon: string;
-  description?: string;
-}
-
-export const SWEDISH_ROUTE_PRESETS: SwedishRoutePreset[] = [
-  { name: 'Fjällresa (Sälen)', start: 'Stockholm', dest: 'Sälen', distanceMil: 42, icon: '⛷️', description: 'Klassisk fjällresa' },
-  { name: 'Stockholm ➔ Göteborg', start: 'Stockholm', dest: 'Göteborg', distanceMil: 47, icon: '🌆', description: 'E4 / Riksväg 40' },
-  { name: 'Åre Express', start: 'Stockholm', dest: 'Åre', distanceMil: 62, icon: '🏔️', description: 'Norrlandsresa via E4' },
-  { name: 'Malmö ➔ Stockholm', start: 'Malmö', dest: 'Stockholm', distanceMil: 61, icon: '🇸🇪', description: 'E4 från söder' },
-  { name: 'Sommarresan (Österlen)', start: 'Göteborg', dest: 'Österlen', distanceMil: 38, icon: '🏖️', description: 'Sommarsemester söderut' },
-  { name: 'Uppsala ➔ Stockholm', start: 'Uppsala', dest: 'Stockholm', distanceMil: 7, icon: '🚗', description: 'Regional pendling' },
-];
-
 // Benchmark för referens mot bensinbil (uppdateras dynamiskt i appen)
 export const PETROL_BENCHMARK = {
   litersPerMil: 0.65,

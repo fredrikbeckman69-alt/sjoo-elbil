@@ -1,9 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { HeaderHero } from './components/HeaderHero';
-import { RoadTripPlanner } from './components/RoadTripPlanner';
-import { TripConditionsSelector } from './components/TripConditions';
-import { OperatorRoutePlanner } from './components/OperatorRoutePlanner';
-import { RouteCalculator } from './components/RouteCalculator';
+import { UnifiedTripPlanner } from './components/UnifiedTripPlanner';
 import { RouteResult, calculateRoute } from './services/routing';
 import { RoadTripChecklist } from './components/RoadTripChecklist';
 import { fetchCurrentPetrolPrice, FuelPriceData, DEFAULT_FUEL_PRICE } from './services/fuelPriceService';
@@ -368,21 +365,6 @@ export const App: React.FC = () => {
     setSetting('waypoints', newWaypoints);
   };
 
-  // Snabbval av svensk långresa
-  const handleSelectRoutePreset = (start: string, dest: string, distanceMil: number) => {
-    setStartAddressState(start);
-    setDestAddressState(dest);
-    setWaypointsState([]);
-    setRouteResultState(null);
-    setSetting('waypoints', []);
-    const finalDist = isRoundTrip ? distanceMil * 2 : distanceMil;
-    setTripDistanceMilState(finalDist);
-    setSetting('startAddress', start);
-    setSetting('destAddress', dest);
-    setSetting('tripDistanceMil', finalDist);
-    pushCloudState({ startAddress: start, destAddress: dest, tripDistanceMil: finalDist });
-  };
-
   // Hantera sparade resor i IndexedDB
   const handleSaveTrip = async (newTrip: SavedTrip) => {
     await saveTrip(newTrip);
@@ -485,11 +467,9 @@ export const App: React.FC = () => {
     fuelPrice.pricePerLiter
   );
 
-  // Hitta hemmataxa och snabbladdartaxa från aktiva scenarier för att skicka till RoadTripPlanner
+  // Hitta hemmataxa från aktiva scenarier för att skicka till kalkylatorn
   const homeScenario = scenarios.find((s) => s.id.includes('home') || s.name.toLowerCase().includes('hemma')) || scenarios[0];
-  const fastScenario = scenarios.find((s) => s.id.includes('fast') || s.id.includes('dc') || s.name.toLowerCase().includes('snabb')) || scenarios[2];
   const homePrice = homeScenario ? homeScenario.pricePerKwh : 1.15;
-  const fastPrice = fastScenario ? fastScenario.pricePerKwh : 4.95;
 
   // Förstasida: Inloggning och fordonsval med siffersats
   // Blockerar 100% av appen tills giltig 4-siffrig pinkod slagits in
@@ -632,53 +612,28 @@ export const App: React.FC = () => {
               onOpenProfile={() => setIsProfileModalOpen(true)}
             />
 
-            {/* 2. Occasional Driver Road Trip Assistant */}
-            <RoadTripPlanner
-              distanceMil={tripDistanceMil}
+            {/* 2. Sammanhållen Rese- & Laddningsplanerare (Rutt, Förutsättningar, Operatör, Laddstopp & Kostnad) */}
+            <UnifiedTripPlanner
               vehicle={vehicle}
+              onVehicleChange={handleVehicleChange}
               conditions={conditions}
-              petrolPricePerLiter={fuelPrice.pricePerLiter}
+              onConditionsChange={handleConditionsChange}
+              startAddress={startAddress}
+              onStartAddressChange={handleStartAddressChange}
+              destAddress={destAddress}
+              onDestAddressChange={handleDestAddressChange}
+              waypoints={waypoints}
+              onWaypointsChange={handleWaypointsChange}
+              distanceMil={tripDistanceMil}
+              onDistanceChange={handleTripDistanceChange}
+              isRoundTrip={isRoundTrip}
+              onIsRoundTripChange={handleRoundTripChange}
+              routeResult={routeResult}
+              onRouteCalculated={setRouteResultState}
               homePricePerKwh={homePrice}
-              fastPricePerKwh={fastPrice}
-              onSelectRoutePreset={handleSelectRoutePreset}
+              petrolPricePerLiter={fuelPrice.pricePerLiter}
+              onSwitchToMapTab={() => handleTabChange('map')}
             />
-
-        {/* 3. Driving Conditions (Winter, Roof Box, Highway Speed) */}
-        <TripConditionsSelector
-          baseConsumption={vehicle.consumptionKwhPer100Km}
-          batteryCapacityKwh={vehicle.batteryCapacityKwh}
-          conditions={conditions}
-          onChange={handleConditionsChange}
-        />
-
-        {/* 4. Primary Configuration Grid: Valbara Operatörer (Vänster) & Ruttkalkyl (Höger) */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <OperatorRoutePlanner
-            vehicle={vehicle}
-            onVehicleChange={handleVehicleChange}
-            conditions={conditions}
-            tripDistanceMil={tripDistanceMil}
-            startAddress={startAddress}
-            destAddress={destAddress}
-            waypoints={waypoints}
-            routeCoordinates={routeResult?.routeCoordinates}
-            homePricePerKwh={homePrice}
-            petrolPricePerLiter={fuelPrice.pricePerLiter}
-          />
-          <RouteCalculator
-            distanceMil={tripDistanceMil}
-            onDistanceChange={handleTripDistanceChange}
-            startAddress={startAddress}
-            onStartAddressChange={handleStartAddressChange}
-            destAddress={destAddress}
-            onDestAddressChange={handleDestAddressChange}
-            waypoints={waypoints}
-            onWaypointsChange={handleWaypointsChange}
-            isRoundTrip={isRoundTrip}
-            onIsRoundTripChange={handleRoundTripChange}
-            onRouteCalculated={setRouteResultState}
-          />
-        </div>
 
         {/* 5. Road Trip Checklist for Occasional Long Drivers */}
         <RoadTripChecklist items={checklist} onToggleItem={handleToggleChecklist} />
