@@ -1,4 +1,5 @@
 export interface VehicleProfile {
+  id?: string;
   name: string;
   consumptionKwhPer100Km: number; // e.g. 18.5
   batteryCapacityKwh: number; // e.g. 77
@@ -43,4 +44,30 @@ export interface ScenarioResult {
   savingsVsHighestTrip: number;
   savingsVsPetrolTrip: number;
   savingsVsPetrolMonthly: number;
+}
+
+export interface SavedTrip {
+  id: string;
+  createdAt: string; // ISO date
+  title: string;
+  startAddress: string;
+  destAddress: string;
+  distanceMil: number;
+  distanceKm: number;
+  durationText?: string;
+  consumptionKwhPer100Km: number;
+  energyUsedKwh: number;
+  cheapestScenarioName: string;
+  cheapestTripCost: number;
+  highestTripCost: number;
+}
+
+export interface DatabaseBackup {
+  version: number;
+  databaseName: string;
+  exportedAt: string;
+  settings: Record<string, any>;
+  vehicle: VehicleProfile;
+  scenarios: ChargingScenario[];
+  trips: SavedTrip[];
 }
