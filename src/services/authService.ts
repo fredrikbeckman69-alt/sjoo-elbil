@@ -1,4 +1,4 @@
-import { UserAccount } from '../types';
+import { UserAccount, VehicleProfile } from '../types';
 import { getSetting, setSetting } from '../db/indexedDb';
 import { cleanVehicleDisplayName } from './vehicleRegistryService';
 
@@ -133,12 +133,17 @@ export async function saveUserAccount(account: UserAccount): Promise<UserAccount
   const current = await getUserAccounts();
   const normalizedId = account.id.trim().toUpperCase();
   const cleanName = cleanVehicleDisplayName(account.name, account.regnr);
-  const cleanProfile = account.vehicleProfile
+  const cleanProfile: VehicleProfile = account.vehicleProfile
     ? {
         ...account.vehicleProfile,
         name: cleanVehicleDisplayName(account.vehicleProfile.name, account.regnr),
       }
-    : undefined;
+    : {
+        id: normalizedId,
+        name: cleanName,
+        batteryCapacityKwh: 60,
+        consumptionKwhPer100Km: 17.5,
+      };
   const sanitizedAccount: UserAccount = {
     ...account,
     id: normalizedId,

@@ -50,7 +50,7 @@ import {
   getLastSelectedVehicleId,
   setLastSelectedVehicleId,
 } from './services/authService';
-import { formatRegnrPlate } from './services/vehicleRegistryService';
+import { formatRegnrPlate, cleanVehicleDisplayName } from './services/vehicleRegistryService';
 import {
   startAutoSync,
   pushCloudState,
@@ -134,11 +134,17 @@ export const App: React.FC = () => {
   }, [loadDataFromDb]);
 
   const handleLoginSuccess = (account: UserAccount) => {
-    setCurrentUser(account);
+    const cleanedAccount: UserAccount = {
+      ...account,
+      name: cleanVehicleDisplayName(account.name, account.regnr),
+      vehicleProfile: {
+        ...account.vehicleProfile,
+        name: cleanVehicleDisplayName(account.vehicleProfile.name, account.regnr),
+      },
+    };
+    setCurrentUser(cleanedAccount);
     setLastSelectedVehicleId(account.id);
-    if (account.vehicleProfile) {
-      handleVehicleChange(account.vehicleProfile);
-    }
+    handleVehicleChange(cleanedAccount.vehicleProfile);
   };
 
   const handleLogout = () => {
@@ -146,10 +152,16 @@ export const App: React.FC = () => {
   };
 
   const handleAccountUpdated = (updated: UserAccount) => {
-    setCurrentUser(updated);
-    if (updated.vehicleProfile) {
-      handleVehicleChange(updated.vehicleProfile);
-    }
+    const cleanedAccount: UserAccount = {
+      ...updated,
+      name: cleanVehicleDisplayName(updated.name, updated.regnr),
+      vehicleProfile: {
+        ...updated.vehicleProfile,
+        name: cleanVehicleDisplayName(updated.vehicleProfile.name, updated.regnr),
+      },
+    };
+    setCurrentUser(cleanedAccount);
+    handleVehicleChange(cleanedAccount.vehicleProfile);
   };
 
   // Automatisk låsning vid 15 minuters inaktivitet (säkerställer att ingen kan använda appen utan PIN)
@@ -458,7 +470,7 @@ export const App: React.FC = () => {
                   <span className="text-xs font-bold text-cyan-300">{currentUser.ownerName}</span>
                 )}
                 <span className="text-xs text-slate-400">•</span>
-                <span className="text-xs font-bold text-white">{currentUser.name}</span>
+                <span className="text-xs font-bold text-white">{cleanVehicleDisplayName(currentUser.name, currentUser.regnr)}</span>
               </div>
               <span className="text-[11px] text-slate-400 hidden sm:inline">
                 {vehicle.batteryCapacityKwh} kWh • {vehicle.consumptionKwhPer100Km} kWh/100km

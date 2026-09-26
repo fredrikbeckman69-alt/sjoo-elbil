@@ -31,6 +31,7 @@ import {
 import {
   fetchVehicleFromRegistry,
   formatRegnrPlate,
+  cleanVehicleDisplayName,
 } from '../services/vehicleRegistryService';
 import carImage from '../assets/bil.jpg';
 
@@ -273,7 +274,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
       return;
     }
 
-    const finalName = regName.trim() || `Elbil (${formatRegnrPlate(cleanPlate)})`;
+    const finalName = cleanVehicleDisplayName(regName.trim(), cleanPlate) || 'Elbil';
     const newProfile: VehicleProfile = {
       id: cleanPlate,
       name: finalName,
@@ -429,7 +430,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                       <optgroup label="Befintliga användare">
                         {accounts.map((acc) => (
                           <option key={acc.id} value={acc.id} className="bg-slate-900 text-white">
-                            [{formatRegnrPlate(acc.regnr)}] {acc.ownerName ? `${acc.ownerName} • ` : ''}{acc.name}
+                            [{formatRegnrPlate(acc.regnr)}] {acc.ownerName ? `${acc.ownerName} • ` : ''}{cleanVehicleDisplayName(acc.name, acc.regnr)}
                           </option>
                         ))}
                       </optgroup>
@@ -473,7 +474,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                       </span>
                     )}
                     <span className="text-white font-bold truncate">
-                      {selectedAccount.ownerName || selectedAccount.name}
+                      {selectedAccount.ownerName || cleanVehicleDisplayName(selectedAccount.name, selectedAccount.regnr)}
                     </span>
                     <span className="text-cyan-400 font-mono text-[10px] flex-shrink-0">
                       [{formatRegnrPlate(selectedAccount.regnr)}]

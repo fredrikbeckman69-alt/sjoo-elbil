@@ -16,7 +16,7 @@ import {
   changeAccountPin,
   fileToResizedBase64,
 } from '../services/authService';
-import { formatRegnrPlate } from '../services/vehicleRegistryService';
+import { formatRegnrPlate, cleanVehicleDisplayName } from '../services/vehicleRegistryService';
 import defaultCarImage from '../assets/bil.jpg';
 
 interface UserProfileModalProps {
@@ -34,7 +34,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
 }) => {
   // Profilfält
   const [ownerName, setOwnerName] = useState<string>(currentUser.ownerName || '');
-  const [vehicleName, setVehicleName] = useState<string>(currentUser.name || '');
+  const [vehicleName, setVehicleName] = useState<string>(cleanVehicleDisplayName(currentUser.name, currentUser.regnr));
   const [photoUrl, setPhotoUrl] = useState<string | undefined>(currentUser.photoUrl);
 
   // Pinkodsbyte
