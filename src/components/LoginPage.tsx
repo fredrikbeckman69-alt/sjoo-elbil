@@ -2,14 +2,11 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Car,
   Zap,
-  Lock,
   Unlock,
   KeyRound,
-  ShieldCheck,
   ChevronDown,
   Delete,
   RotateCcw,
-  PlusCircle,
   ArrowLeft,
   CheckCircle2,
   AlertCircle,
@@ -20,6 +17,7 @@ import {
   User,
   Camera,
   Trash2,
+  UserPlus,
 } from 'lucide-react';
 import { UserAccount, VehicleProfile } from '../types';
 import {
@@ -210,8 +208,13 @@ export const LoginPage: React.FC<LoginPageProps> = ({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [mode, handleDigitPress, handleBackspace, handleClearPin]);
 
-  // Byt vald bil i dropdown
+  // Byt vald bil i dropdown (eller välj "Ny användare")
   const handleSelectVehicle = (id: string) => {
+    if (id === '__NEW_USER__') {
+      setMode('register');
+      setRegError(null);
+      return;
+    }
     setSelectedAccountId(id);
     setLastSelectedVehicleId(id);
     setPin('');
@@ -317,181 +320,181 @@ export const LoginPage: React.FC<LoginPageProps> = ({
   return (
     <div
       ref={containerRef}
-      className="min-h-screen bg-slate-950 text-slate-100 flex flex-col justify-center items-center px-4 sm:px-6 py-8 relative overflow-hidden select-none"
+      className="min-h-[100dvh] bg-slate-950 text-slate-100 flex flex-col justify-center items-center p-3 sm:p-6 relative overflow-hidden select-none"
     >
       {/* Bakgrundseffekter */}
       <div className="absolute inset-0 -z-20 overflow-hidden">
         <img
           src={carImage}
           alt="Bakgrund elbil"
-          className="w-full h-full object-cover filter blur-md brightness-[0.25] scale-105"
+          className="w-full h-full object-cover filter blur-md brightness-[0.22] scale-105"
         />
-        <div className="absolute inset-0 bg-gradient-to-b from-slate-950/80 via-slate-950/90 to-slate-950" />
+        <div className="absolute inset-0 bg-gradient-to-b from-slate-950/85 via-slate-950/90 to-slate-950" />
       </div>
 
       <div className="fixed top-0 left-1/2 -translate-x-1/2 w-full max-w-4xl h-72 bg-gradient-to-b from-cyan-500/15 via-emerald-500/10 to-transparent blur-3xl pointer-events-none -z-10" />
 
-      {/* Huvudkort för inloggning */}
-      <div className="w-full max-w-md bg-slate-900/90 border border-slate-800 rounded-3xl p-6 sm:p-8 shadow-2xl backdrop-blur-xl relative z-10">
-        {/* Logotyp & Titel */}
-        <div className="text-center mb-6">
-          <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-gradient-to-br from-emerald-500/20 to-cyan-500/20 border border-emerald-400/30 text-emerald-400 mb-3 shadow-lg shadow-emerald-950/50">
-            {isSuccess ? (
-              <Unlock className="w-7 h-7 text-emerald-400 animate-bounce" />
-            ) : mode === 'register' ? (
-              <Car className="w-7 h-7 text-cyan-400" />
-            ) : (
-              <Zap className="w-7 h-7 text-emerald-400 fill-emerald-400/30" />
-            )}
+      {/* Huvudkort för inloggning & siffersats */}
+      <div className="w-full max-w-md bg-slate-900/95 border border-slate-800 rounded-3xl p-5 sm:p-7 shadow-2xl backdrop-blur-xl relative z-10">
+        {/* ======================================================== */}
+        {/* TOPP: LOGO + RUBRIK + SNABBKNAPP FÖR NY ANVÄNDARE       */}
+        {/* ======================================================== */}
+        <div className="flex items-center justify-between pb-3 mb-3 border-b border-slate-800/80">
+          <div className="flex items-center gap-2.5">
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-emerald-500/20 to-cyan-500/20 border border-emerald-400/30 text-emerald-400 flex items-center justify-center shadow-md flex-shrink-0">
+              {isSuccess ? (
+                <Unlock className="w-4 h-4 text-emerald-400 animate-bounce" />
+              ) : mode === 'register' ? (
+                <Car className="w-4 h-4 text-cyan-400" />
+              ) : (
+                <Zap className="w-4 h-4 text-emerald-400 fill-emerald-400/30" />
+              )}
+            </div>
+            <div>
+              <h1 className="text-base sm:text-lg font-black tracking-tight text-white leading-tight">
+                Sjöö Elbilskalkylator
+              </h1>
+              <p className="text-[11px] text-slate-400">
+                {mode === 'login' ? 'Slå in din pinkod på siffersatsen' : 'Skapa ny användare & bil'}
+              </p>
+            </div>
           </div>
-          <h1 className="text-2xl font-black tracking-tight text-white">
-            Sjöö Elbilskalkylator Pro
-          </h1>
-          <p className="text-xs text-slate-400 mt-1">
-            {mode === 'login'
-              ? 'Välj ditt fordon och slå in din 4-siffriga pinkod'
-              : 'Registrera fordon och välj en personlig 4-siffrig pinkod'}
-          </p>
-        </div>
 
-        {/* Flikväxlare: Logga in / Skapa nytt konto */}
-        <div className="flex items-center bg-slate-950/70 p-1 rounded-xl border border-slate-800 mb-6">
-          <button
-            type="button"
-            onClick={() => {
-              setMode('login');
-              setPin('');
-              setPinError(null);
-            }}
-            className={`flex-1 py-2 px-3 rounded-lg text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer ${
-              mode === 'login'
-                ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-md'
-                : 'text-slate-400 hover:text-slate-200'
-            }`}
-          >
-            <Lock className="w-3.5 h-3.5" />
-            Logga in
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              setMode('register');
-              setRegError(null);
-            }}
-            className={`flex-1 py-2 px-3 rounded-lg text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer ${
-              mode === 'register'
-                ? 'bg-gradient-to-r from-cyan-600 to-blue-600 text-white shadow-md'
-                : 'text-slate-400 hover:text-slate-200'
-            }`}
-          >
-            <PlusCircle className="w-3.5 h-3.5" />
-            Skapa nytt konto
-          </button>
+          {/* Snabbväxlare: Ny användare / Tillbaka till siffersats */}
+          {mode === 'login' ? (
+            <button
+              type="button"
+              onClick={() => {
+                setMode('register');
+                setRegError(null);
+              }}
+              className="py-1.5 px-3 rounded-xl bg-cyan-500/15 hover:bg-cyan-500/25 border border-cyan-400/40 text-cyan-300 text-xs font-bold flex items-center gap-1.5 transition active:scale-95 cursor-pointer shadow-sm flex-shrink-0"
+              title="Registrera ny användare"
+            >
+              <UserPlus className="w-3.5 h-3.5 text-cyan-400" />
+              <span>Ny användare</span>
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={() => {
+                setMode('login');
+                setPin('');
+                setPinError(null);
+              }}
+              className="py-1.5 px-3 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 text-xs font-bold flex items-center gap-1.5 transition active:scale-95 cursor-pointer flex-shrink-0"
+            >
+              <ArrowLeft className="w-3.5 h-3.5 text-slate-400" />
+              <span>Siffersats</span>
+            </button>
+          )}
         </div>
 
         {/* ======================================================== */}
-        {/* LÄGE 1: FÖRSTA LÄGET MED DROP DOWN OCH SIFFERSATS (LOGIN) */}
+        {/* LÄGE 1: SIFFERSATSEN DIREKT (LOGIN VIEW)                 */}
         {/* ======================================================== */}
         {mode === 'login' && (
-          <div className="space-y-6">
-            {/* Bekräftelse vid nyskapat konto som kräver pinkodsinmatning */}
+          <div className="space-y-4">
+            {/* Bekräftelse vid nyskapat konto */}
             {regSuccessBanner && (
-              <div className="p-3 bg-emerald-500/15 border border-emerald-500/40 rounded-2xl text-emerald-300 text-xs flex items-center gap-2.5 shadow-lg shadow-emerald-950/40">
-                <CheckCircle2 className="w-5 h-5 flex-shrink-0 text-emerald-400" />
+              <div className="p-3 bg-emerald-500/15 border border-emerald-500/40 rounded-xl text-emerald-300 text-xs flex items-center gap-2 shadow-lg shadow-emerald-950/40">
+                <CheckCircle2 className="w-4 h-4 flex-shrink-0 text-emerald-400" />
                 <span className="leading-snug">{regSuccessBanner}</span>
               </div>
             )}
 
-            {/* 1. Fordonsväljare (Drop down för befintliga användare) */}
+            {/* VÄLJ FORDON / NY ANVÄNDARE (DROP DOWN + KNAPP) */}
             <div>
-              <label className="block text-xs font-semibold text-slate-300 mb-1.5 flex items-center justify-between">
-                <span>Välj fordon (befintliga användare):</span>
+              <div className="flex items-center justify-between text-[11px] font-semibold text-slate-300 mb-1.5">
+                <span>Välj fordon eller ny användare:</span>
                 <span className="text-[10px] text-cyan-400 font-mono">
-                  {accounts.length} fordon registrerade
+                  {accounts.length} reg.
                 </span>
-              </label>
+              </div>
 
               {isLoadingAccounts ? (
-                <div className="flex items-center gap-2 p-3 bg-slate-950/80 rounded-xl border border-slate-800 text-xs text-slate-400">
+                <div className="flex items-center gap-2 p-2.5 bg-slate-950 rounded-xl border border-slate-800 text-xs text-slate-400">
                   <Loader2 className="w-4 h-4 animate-spin text-emerald-400" />
-                  <span>Hämtar fordon...</span>
+                  <span>Hämtar användare...</span>
                 </div>
               ) : (
-                <div className="relative">
-                  <select
-                    value={selectedAccountId}
-                    onChange={(e) => handleSelectVehicle(e.target.value)}
-                    aria-label="Välj fordon från rullgardinsmeny"
-                    className="w-full bg-slate-950 border border-slate-700 hover:border-slate-600 focus:border-emerald-500 rounded-xl py-3 pl-3 pr-10 text-sm font-semibold text-white appearance-none cursor-pointer transition focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                <div className="flex items-center gap-2">
+                  <div className="relative flex-1">
+                    <select
+                      value={selectedAccountId}
+                      onChange={(e) => handleSelectVehicle(e.target.value)}
+                      aria-label="Välj fordon från rullgardinsmeny eller välj ny användare"
+                      className="w-full bg-slate-950 border border-slate-700 hover:border-slate-600 focus:border-emerald-500 rounded-xl py-2 pl-3 pr-9 text-xs sm:text-sm font-semibold text-white appearance-none cursor-pointer transition focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                    >
+                      <optgroup label="Befintliga användare">
+                        {accounts.map((acc) => (
+                          <option key={acc.id} value={acc.id} className="bg-slate-900 text-white">
+                            [{formatRegnrPlate(acc.regnr)}] {acc.ownerName ? `${acc.ownerName} • ` : ''}{acc.name}
+                          </option>
+                        ))}
+                      </optgroup>
+                      <optgroup label="Alternativ">
+                        <option value="__NEW_USER__" className="bg-slate-900 text-cyan-400 font-bold">
+                          ➕ Ny användare / Registrera nytt fordon...
+                        </option>
+                      </optgroup>
+                    </select>
+                    <ChevronDown className="w-4 h-4 text-slate-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMode('register');
+                      setRegError(null);
+                    }}
+                    className="py-2 px-2.5 rounded-xl bg-slate-800/90 hover:bg-cyan-950/60 border border-slate-700 hover:border-cyan-500/50 text-slate-300 hover:text-cyan-300 text-xs font-semibold flex items-center gap-1 transition active:scale-95 cursor-pointer flex-shrink-0"
+                    title="Skapa ny användare"
                   >
-                    {accounts.map((acc) => (
-                      <option key={acc.id} value={acc.id} className="bg-slate-900 text-white">
-                        [{formatRegnrPlate(acc.regnr)}] {acc.ownerName ? `${acc.ownerName} • ` : ''}{acc.name} ({acc.vehicleProfile?.batteryCapacityKwh || 60} kWh)
-                      </option>
-                    ))}
-                  </select>
-                  <ChevronDown className="w-4 h-4 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                    <UserPlus className="w-3.5 h-3.5 text-cyan-400" />
+                    <span className="hidden sm:inline">Ny användare</span>
+                  </button>
+                </div>
+              )}
+
+              {/* Kompakt information om vald bil */}
+              {selectedAccount && (
+                <div className="mt-2 px-2 py-1 bg-slate-950/60 border border-slate-800/70 rounded-lg flex items-center justify-between text-[11px]">
+                  <div className="flex items-center gap-2 min-w-0">
+                    {selectedAccount.photoUrl ? (
+                      <img
+                        src={selectedAccount.photoUrl}
+                        alt="Bil"
+                        className="w-5 h-5 rounded-md object-cover border border-slate-700 flex-shrink-0"
+                      />
+                    ) : (
+                      <span className="bg-blue-600 text-white font-mono text-[9px] font-bold px-1 rounded flex-shrink-0">
+                        S
+                      </span>
+                    )}
+                    <span className="text-white font-bold truncate">
+                      {selectedAccount.ownerName || selectedAccount.name}
+                    </span>
+                    <span className="text-cyan-400 font-mono text-[10px] flex-shrink-0">
+                      [{formatRegnrPlate(selectedAccount.regnr)}]
+                    </span>
+                  </div>
+                  <span className="text-slate-400 text-[10px] flex-shrink-0">
+                    {selectedAccount.vehicleProfile?.batteryCapacityKwh || 60} kWh
+                  </span>
                 </div>
               )}
             </div>
 
-            {/* Förhandsvisning av vald bil */}
-            {selectedAccount && (
-              <div className="p-3 bg-slate-950/60 border border-slate-800/80 rounded-xl flex items-center justify-between">
-                <div className="flex items-center gap-2.5">
-                  {selectedAccount.photoUrl ? (
-                    <img
-                      src={selectedAccount.photoUrl}
-                      alt="Bil"
-                      className="w-12 h-12 rounded-xl object-cover border border-slate-700 shadow flex-shrink-0"
-                    />
-                  ) : (
-                    <div className="inline-flex items-center bg-white text-slate-950 font-black font-mono text-xs px-2.5 py-1 rounded shadow border border-slate-300 flex-shrink-0">
-                      <span className="bg-blue-600 text-white text-[9px] font-bold px-1 py-0.5 rounded-l -ml-2 mr-1">
-                        S
-                      </span>
-                      {formatRegnrPlate(selectedAccount.regnr)}
-                    </div>
-                  )}
-
-                  <div className="text-left">
-                    <div className="flex items-center gap-1.5 flex-wrap">
-                      {selectedAccount.photoUrl && (
-                        <div className="inline-flex items-center bg-white text-slate-950 font-black font-mono text-[10px] px-1.5 py-0.2 rounded shadow border border-slate-300">
-                          {formatRegnrPlate(selectedAccount.regnr)}
-                        </div>
-                      )}
-                      {selectedAccount.ownerName && (
-                        <span className="text-xs font-bold text-cyan-300">
-                          {selectedAccount.ownerName}
-                        </span>
-                      )}
-                    </div>
-                    <div className="text-xs font-bold text-white leading-tight mt-0.5">
-                      {selectedAccount.name}
-                    </div>
-                    <div className="text-[10px] text-slate-400">
-                      {selectedAccount.vehicleProfile?.consumptionKwhPer100Km || 18} kWh/100km •{' '}
-                      {selectedAccount.vehicleProfile?.batteryCapacityKwh || 60} kWh
-                    </div>
-                  </div>
-                </div>
-                <div className="text-emerald-400 text-xs font-bold flex items-center gap-1 flex-shrink-0">
-                  <ShieldCheck className="w-3.5 h-3.5" />
-                  Klar
-                </div>
-              </div>
-            )}
-
-            {/* 2. Visuella PIN-prickar (4 siffror) */}
-            <div className="text-center py-1">
-              <div className="text-xs font-medium text-slate-400 mb-2 flex items-center justify-center gap-1.5">
+            {/* VISUELLA PIN-PRICKAR (4 SIFFROR) */}
+            <div className="text-center pt-1">
+              <div className="text-[11px] font-medium text-slate-400 mb-1.5 flex items-center justify-center gap-1.5">
                 <KeyRound className="w-3.5 h-3.5 text-cyan-400" />
-                <span>Slå in din fyrsiffriga pinkod:</span>
+                <span>Ange fyrsiffrig pinkod:</span>
               </div>
 
               <div
-                className={`flex items-center justify-center gap-4 my-2 transition-transform duration-200 ${
+                className={`flex items-center justify-center gap-3.5 my-1.5 transition-transform duration-200 ${
                   isShake ? 'animate-[shake_0.4s_ease-in-out]' : ''
                 }`}
                 style={
@@ -507,7 +510,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                   return (
                     <div
                       key={index}
-                      className={`w-4 h-4 rounded-full transition-all duration-200 ${
+                      className={`w-3.5 h-3.5 rounded-full transition-all duration-200 ${
                         isSuccess
                           ? 'bg-emerald-400 scale-125 shadow-lg shadow-emerald-500/50'
                           : pinError
@@ -522,7 +525,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
               </div>
 
               {/* Status / Felmeddelande */}
-              <div className="h-5 mt-1.5 flex items-center justify-center">
+              <div className="h-5 flex items-center justify-center">
                 {isVerifying ? (
                   <span className="text-xs text-cyan-400 flex items-center gap-1 font-medium">
                     <Loader2 className="w-3 h-3 animate-spin" /> Verifierar...
@@ -536,15 +539,15 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                     <AlertCircle className="w-3.5 h-3.5" /> {pinError}
                   </span>
                 ) : (
-                  <span className="text-[11px] text-slate-500">
-                    Använd siffersatsen nedan eller tangentbordet
+                  <span className="text-[10px] text-slate-500">
+                    Knappa in koden på knapparna nedan
                   </span>
                 )}
               </div>
             </div>
 
-            {/* 3. Siffersats (Interaktiv Numpad 0-9) */}
-            <div className="grid grid-cols-3 gap-3 max-w-[300px] mx-auto">
+            {/* SIFFERSATS (NUMPAD 0-9, C, ⌫) */}
+            <div className="grid grid-cols-3 gap-2 sm:gap-2.5 max-w-[280px] sm:max-w-[300px] mx-auto">
               {[
                 { label: '1', sub: '' },
                 { label: '2', sub: 'ABC' },
@@ -561,11 +564,11 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                   type="button"
                   onClick={() => handleDigitPress(label)}
                   disabled={isSuccess || isVerifying}
-                  className="h-14 rounded-2xl bg-slate-800/80 hover:bg-slate-700/80 active:bg-cyan-600/40 border border-slate-700/70 hover:border-cyan-500/50 text-white font-bold text-xl flex flex-col items-center justify-center transition-all duration-150 active:scale-95 shadow-md cursor-pointer disabled:opacity-50 select-none group"
+                  className="h-12 sm:h-13 rounded-2xl bg-slate-800/90 hover:bg-slate-700 active:bg-cyan-600/40 border border-slate-700 hover:border-cyan-500/50 text-white font-bold text-lg sm:text-xl flex flex-col items-center justify-center transition-all duration-150 active:scale-95 shadow-md cursor-pointer disabled:opacity-50 select-none group"
                 >
                   <span className="leading-none group-active:text-cyan-300">{label}</span>
                   {sub && (
-                    <span className="text-[8px] font-normal tracking-wider text-slate-400 leading-none mt-0.5">
+                    <span className="text-[7px] font-normal tracking-wider text-slate-400 leading-none mt-0.5">
                       {sub}
                     </span>
                   )}
@@ -577,10 +580,10 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                 type="button"
                 onClick={handleClearPin}
                 disabled={isSuccess || isVerifying || pin.length === 0}
-                className="h-14 rounded-2xl bg-slate-900/60 hover:bg-slate-800/60 active:bg-slate-800 border border-slate-800 hover:border-slate-700 text-slate-400 hover:text-slate-200 font-bold text-xs uppercase flex items-center justify-center transition active:scale-95 cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed select-none"
+                className="h-12 sm:h-13 rounded-2xl bg-slate-900/80 hover:bg-slate-800 active:bg-slate-800 border border-slate-800 hover:border-slate-700 text-slate-400 hover:text-slate-200 font-bold text-xs uppercase flex items-center justify-center transition active:scale-95 cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed select-none"
                 title="Rensa pinkod (Esc)"
               >
-                <RotateCcw className="w-4 h-4 mr-1 text-slate-400" />
+                <RotateCcw className="w-3.5 h-3.5 mr-1 text-slate-400" />
                 C
               </button>
 
@@ -588,10 +591,10 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                 type="button"
                 onClick={() => handleDigitPress('0')}
                 disabled={isSuccess || isVerifying}
-                className="h-14 rounded-2xl bg-slate-800/80 hover:bg-slate-700/80 active:bg-cyan-600/40 border border-slate-700/70 hover:border-cyan-500/50 text-white font-bold text-xl flex flex-col items-center justify-center transition-all duration-150 active:scale-95 shadow-md cursor-pointer disabled:opacity-50 select-none group"
+                className="h-12 sm:h-13 rounded-2xl bg-slate-800/90 hover:bg-slate-700 active:bg-cyan-600/40 border border-slate-700 hover:border-cyan-500/50 text-white font-bold text-lg sm:text-xl flex flex-col items-center justify-center transition-all duration-150 active:scale-95 shadow-md cursor-pointer disabled:opacity-50 select-none group"
               >
                 <span className="leading-none group-active:text-cyan-300">0</span>
-                <span className="text-[8px] font-normal tracking-wider text-slate-400 leading-none mt-0.5">
+                <span className="text-[7px] font-normal tracking-wider text-slate-400 leading-none mt-0.5">
                   +
                 </span>
               </button>
@@ -600,20 +603,31 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                 type="button"
                 onClick={handleBackspace}
                 disabled={isSuccess || isVerifying || pin.length === 0}
-                className="h-14 rounded-2xl bg-slate-900/60 hover:bg-slate-800/60 active:bg-slate-800 border border-slate-800 hover:border-slate-700 text-slate-400 hover:text-slate-200 font-bold text-xs flex items-center justify-center transition active:scale-95 cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed select-none"
+                className="h-12 sm:h-13 rounded-2xl bg-slate-900/80 hover:bg-slate-800 active:bg-slate-800 border border-slate-800 hover:border-slate-700 text-slate-400 hover:text-slate-200 font-bold text-xs flex items-center justify-center transition active:scale-95 cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed select-none"
                 title="Radera siffra (Backspace)"
               >
-                <Delete className="w-5 h-5 text-slate-400" />
+                <Delete className="w-4 h-4 text-slate-400" />
               </button>
             </div>
 
-            {/* Ledtråd / Hjälpinformation för demo */}
-            <div className="pt-2 border-t border-slate-800/80 flex items-center justify-between text-[11px] text-slate-400">
-              <div className="flex items-center gap-1.5 flex-wrap">
-                <Info className="w-3.5 h-3.5 text-cyan-400 flex-shrink-0" />
+            {/* NEDRE DEL: ALTERNATIVT NY ANVÄNDARE + INFO OM MARKUS SJÖÖ */}
+            <div className="pt-2 border-t border-slate-800/80 space-y-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setMode('register');
+                  setRegError(null);
+                }}
+                className="w-full py-2 px-3 rounded-xl bg-slate-950 hover:bg-cyan-950/40 border border-slate-800 hover:border-cyan-500/40 text-cyan-300 text-xs font-semibold flex items-center justify-center gap-1.5 transition active:scale-98 cursor-pointer"
+              >
+                <UserPlus className="w-3.5 h-3.5 text-cyan-400" />
+                <span>Inte din bil? Klicka här för att skapa <strong>Ny användare</strong></span>
+              </button>
+
+              <div className="flex items-center justify-center gap-1.5 text-[10px] text-slate-400 text-center">
+                <Info className="w-3 h-3 text-cyan-400 flex-shrink-0" />
                 <span>
-                  Första användare: <strong className="text-white font-semibold">Markus Sjöö</strong> ({formatRegnrPlate(selectedAccount?.regnr || 'FFM56R')}) med pinkod{' '}
-                  <strong className="text-emerald-400 font-mono font-bold">7289</strong>
+                  Första användare: <strong className="text-white">Markus Sjöö</strong> ({formatRegnrPlate(selectedAccount?.regnr || 'FFM56R')}) • PIN: <strong className="text-emerald-400 font-mono">7289</strong>
                 </span>
               </div>
             </div>

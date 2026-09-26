@@ -299,6 +299,24 @@ export function formatRegnrPlate(regnr: string): string {
 }
 
 /**
+ * Rensa bort överflödigt registreringsnummer inom parentes från fordonsnamnet.
+ * T.ex. "Cupra Born 58 (FFM 56R)" -> "Cupra Born 58"
+ */
+export function cleanVehicleDisplayName(name?: string, regnr?: string): string {
+  if (!name) return '';
+  let cleaned = name;
+  if (regnr) {
+    const formatted = formatRegnrPlate(regnr);
+    cleaned = cleaned
+      .replace(new RegExp(`\\s*\\(${regnr}\\)`, 'gi'), '')
+      .replace(new RegExp(`\\s*\\(${formatted}\\)`, 'gi'), '');
+  }
+  // Generell borttagning av svenskt registreringsnummer inom parentes, t.ex. (FFM 56R) eller (FFM56R)
+  cleaned = cleaned.replace(/\s*\([A-Z]{3}\s*[0-9]{2}[A-Z0-9]\)/gi, '').trim();
+  return cleaned || name;
+}
+
+/**
  * Skapa officiella direkta länkar för kontroll av fordonet
  */
 export function getOfficialRegistryLinks(regnr: string) {

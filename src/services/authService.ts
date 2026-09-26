@@ -1,5 +1,6 @@
 import { UserAccount } from '../types';
 import { getSetting, setSetting } from '../db/indexedDb';
+import { cleanVehicleDisplayName } from './vehicleRegistryService';
 
 const STORAGE_ACCOUNTS_KEY = 'sjoo_user_accounts';
 const STORAGE_LAST_VEHICLE_KEY = 'sjoo_last_selected_vehicle_id';
@@ -17,12 +18,12 @@ export const DEFAULT_ACCOUNTS: UserAccount[] = [
     id: 'FFM56R',
     regnr: 'FFM56R',
     ownerName: 'Markus Sjöö',
-    name: 'Cupra Born 58 (FFM 56R)',
+    name: 'Cupra Born 58',
     pinCode: '7289',
     createdAt: '2025-01-01T00:00:00.000Z',
     vehicleProfile: {
       id: 'FFM56R',
-      name: 'Cupra Born 58 (FFM 56R)',
+      name: 'Cupra Born 58',
       consumptionKwhPer100Km: 15.7,
       batteryCapacityKwh: 58,
     },
@@ -32,7 +33,7 @@ export const DEFAULT_ACCOUNTS: UserAccount[] = [
     id: 'MIN-BIL',
     regnr: 'MIN-BIL',
     ownerName: 'Demoförare',
-    name: 'Standard Elbil (77 kWh)',
+    name: 'Standard Elbil',
     pinCode: '0000',
     createdAt: '2025-01-01T00:00:00.000Z',
     vehicleProfile: {
@@ -73,8 +74,23 @@ export async function getUserAccounts(): Promise<UserAccount[]> {
       return accounts;
     }
 
-    // Säkerställ att Markus Sjöö med pinkod 7289 alltid är uppdaterad
+    // Säkerställ att Markus Sjöö med pinkod 7289 alltid är uppdaterad och städa bort överflödigt regnr i parentes
     let needsSave = false;
+    for (const acc of accounts) {
+      const cleanedName = cleanVehicleDisplayName(acc.name, acc.regnr);
+      if (cleanedName !== acc.name) {
+        acc.name = cleanedName;
+        needsSave = true;
+      }
+      if (acc.vehicleProfile) {
+        const cleanedProfileName = cleanVehicleDisplayName(acc.vehicleProfile.name, acc.regnr);
+        if (cleanedProfileName !== acc.vehicleProfile.name) {
+          acc.vehicleProfile.name = cleanedProfileName;
+          needsSave = true;
+        }
+      }
+    }
+
     const ffm = accounts.find((a) => a.id.toUpperCase() === 'FFM56R' || a.regnr.toUpperCase() === 'FFM56R');
     if (ffm) {
       if (ffm.ownerName !== 'Markus Sjöö' || ffm.pinCode === '1234') {
@@ -116,6 +132,20 @@ export async function saveAllUserAccounts(accounts: UserAccount[]): Promise<void
 export async function saveUserAccount(account: UserAccount): Promise<UserAccount[]> {
   const current = await getUserAccounts();
   const normalizedId = account.id.trim().toUpperCase();
+  const cleanName = cleanVehicleDisplayName(account.name, account.regnr);
+  const cleanProfile = account.vehicleProfile
+    ? {
+        ...account.vehicleProfile,
+        name: cleanVehicleDisplayName(account.vehicleProfile.name, account.regnr),
+      }
+    : undefined;
+  const sanitizedAccount: UserAccount = {
+    ...account,
+    id: normalizedId,
+    name: cleanName,
+    vehicleProfile: cleanProfile,
+  };
+
   const index = current.findIndex(
     (a) => a.id.toUpperCase() === normalizedId || a.regnr.toUpperCase() === account.regnr.toUpperCase()
   );
@@ -123,9 +153,9 @@ export async function saveUserAccount(account: UserAccount): Promise<UserAccount
   let updated: UserAccount[];
   if (index >= 0) {
     updated = [...current];
-    updated[index] = { ...account, id: normalizedId };
+    updated[index] = sanitizedAccount;
   } else {
-    updated = [{ ...account, id: normalizedId }, ...current];
+    updated = [sanitizedAccount, ...current];
   }
 
   await saveAllUserAccounts(updated);
@@ -214,15 +244,17 @@ export async function updateAccountProfile(
   if (index < 0) throw new Error('Kontot hittades inte');
 
   const current = accounts[index];
+  const cleanedName = updates.name !== undefined ? cleanVehicleDisplayName(updates.name, current.regnr) : current.name;
   const updatedVehicleProfile = {
     ...current.vehicleProfile,
-    ...(updates.name ? { name: updates.name } : {}),
+    ...(updates.name !== undefined ? { name: cleanedName } : {}),
     ...(updates.photoUrl !== undefined ? { photoUrl: updates.photoUrl } : {}),
   };
 
   const updatedAccount: UserAccount = {
     ...current,
     ...updates,
+    name: cleanedName,
     vehicleProfile: updatedVehicleProfile,
   };
 
