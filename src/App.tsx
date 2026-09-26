@@ -1,18 +1,30 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { HeaderHero } from './components/HeaderHero';
+import { RoadTripPlanner } from './components/RoadTripPlanner';
+import { TripConditionsSelector } from './components/TripConditions';
 import { VehicleSettings } from './components/VehicleSettings';
 import { RouteCalculator } from './components/RouteCalculator';
+import { RoadTripChecklist } from './components/RoadTripChecklist';
 import { MonthlySettings } from './components/MonthlySettings';
 import { ScenarioComparison } from './components/ScenarioComparison';
 import { VisualChart } from './components/VisualChart';
 import { SummaryTable } from './components/SummaryTable';
 import { DatabaseManager } from './components/DatabaseManager';
 import { TripHistory } from './components/TripHistory';
-import { VehicleProfile, ChargingScenario, SavedTrip } from './types';
+import {
+  VehicleProfile,
+  ChargingScenario,
+  SavedTrip,
+  TripConditions,
+  ChecklistItem,
+} from './types';
 import {
   DEFAULT_VEHICLE,
   DEFAULT_SCENARIOS,
+  DEFAULT_TRIP_CONDITIONS,
+  DEFAULT_CHECKLIST,
   calculateScenarioResults,
+  calculateEffectiveConsumption,
   kwhPer100KmToKwhPerMil,
 } from './utils/calculations';
 import {
@@ -35,23 +47,27 @@ export const App: React.FC = () => {
   // States som synkas med IndexedDB
   const [vehicle, setVehicleState] = useState<VehicleProfile>(DEFAULT_VEHICLE);
   const [scenarios, setScenariosState] = useState<ChargingScenario[]>(DEFAULT_SCENARIOS);
-  const [tripDistanceMil, setTripDistanceMilState] = useState<number>(25);
+  const [tripDistanceMil, setTripDistanceMilState] = useState<number>(42); // Default Sälen långresa
   const [monthlyDistanceMil, setMonthlyDistanceMilState] = useState<number>(125);
   const [startAddress, setStartAddressState] = useState<string>('Stockholm');
-  const [destAddress, setDestAddressState] = useState<string>('Göteborg');
+  const [destAddress, setDestAddressState] = useState<string>('Sälen');
   const [trips, setTripsState] = useState<SavedTrip[]>([]);
+  const [conditions, setConditionsState] = useState<TripConditions>(DEFAULT_TRIP_CONDITIONS);
+  const [checklist, setChecklistState] = useState<ChecklistItem[]>(DEFAULT_CHECKLIST);
 
   // Ladda data från IndexedDB vid start
   const loadDataFromDb = useCallback(async () => {
     try {
-      const [v, sc, tDist, mDist, sAddr, dAddr, trList] = await Promise.all([
+      const [v, sc, tDist, mDist, sAddr, dAddr, trList, cond, chk] = await Promise.all([
         getActiveVehicle(),
         getScenarios(),
-        getSetting<number>('tripDistanceMil', 25),
+        getSetting<number>('tripDistanceMil', 42),
         getSetting<number>('monthlyDistanceMil', 125),
         getSetting<string>('startAddress', 'Stockholm'),
-        getSetting<string>('destAddress', 'Göteborg'),
+        getSetting<string>('destAddress', 'Sälen'),
         getAllTrips(),
+        getSetting<TripConditions>('tripConditions', DEFAULT_TRIP_CONDITIONS),
+        getSetting<ChecklistItem[]>('tripChecklist', DEFAULT_CHECKLIST),
       ]);
 
       setVehicleState(v);
@@ -61,6 +77,8 @@ export const App: React.FC = () => {
       setStartAddressState(sAddr);
       setDestAddressState(dAddr);
       setTripsState(trList);
+      setConditionsState(cond);
+      setChecklistState(chk);
     } catch (err) {
       console.warn('Kunde inte läsa från IndexedDB, använder defaults:', err);
     } finally {
@@ -107,6 +125,31 @@ export const App: React.FC = () => {
     setSetting('destAddress', addr);
   };
 
+  // Uppdatera körförhållanden (väder/takbox/motorväg)
+  const handleConditionsChange = (updated: TripConditions) => {
+    setConditionsState(updated);
+    setSetting('tripConditions', updated);
+  };
+
+  // Toggla checklista
+  const handleToggleChecklist = (id: string) => {
+    const updated = checklist.map((item) =>
+      item.id === id ? { ...item, completed: !item.completed } : item
+    );
+    setChecklistState(updated);
+    setSetting('tripChecklist', updated);
+  };
+
+  // Snabbval av svensk långresa
+  const handleSelectRoutePreset = (start: string, dest: string, distanceMil: number) => {
+    setStartAddressState(start);
+    setDestAddressState(dest);
+    setTripDistanceMilState(distanceMil);
+    setSetting('startAddress', start);
+    setSetting('destAddress', dest);
+    setSetting('tripDistanceMil', distanceMil);
+  };
+
   // Hantera sparade resor i IndexedDB
   const handleSaveTrip = async (newTrip: SavedTrip) => {
     await saveTrip(newTrip);
@@ -130,10 +173,16 @@ export const App: React.FC = () => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  // Beräkna alla resultat
+  // Effektiv förbrukning justerad för yttre faktorer
+  const { effectiveKwhPer100Km } = calculateEffectiveConsumption(
+    vehicle.consumptionKwhPer100Km,
+    conditions
+  );
+
+  // Beräkna alla scenariokostnader baserat på den effektiva förbrukningen
   const { results, cheapestTripId, cheapestMonthlyId } = calculateScenarioResults(
     scenarios,
-    vehicle.consumptionKwhPer100Km,
+    effectiveKwhPer100Km,
     tripDistanceMil,
     monthlyDistanceMil
   );
@@ -157,19 +206,23 @@ export const App: React.FC = () => {
         {/* 1. Header & Hero with car image */}
         <HeaderHero vehicle={vehicle} tripDistanceMil={tripDistanceMil} />
 
-        {/* 2. Database Status & Backup Management */}
-        <DatabaseManager
+        {/* 2. Occasional Driver Road Trip Assistant */}
+        <RoadTripPlanner
+          distanceMil={tripDistanceMil}
           vehicle={vehicle}
-          scenarios={scenarios}
-          tripDistanceMil={tripDistanceMil}
-          monthlyDistanceMil={monthlyDistanceMil}
-          startAddress={startAddress}
-          destAddress={destAddress}
-          savedTripsCount={trips.length}
-          onDataReloaded={loadDataFromDb}
+          conditions={conditions}
+          onSelectRoutePreset={handleSelectRoutePreset}
         />
 
-        {/* 3. Primary Configuration Grid: Vehicle & Trip */}
+        {/* 3. Driving Conditions (Winter, Roof Box, Highway Speed) */}
+        <TripConditionsSelector
+          baseConsumption={vehicle.consumptionKwhPer100Km}
+          batteryCapacityKwh={vehicle.batteryCapacityKwh}
+          conditions={conditions}
+          onChange={handleConditionsChange}
+        />
+
+        {/* 4. Primary Configuration Grid: Vehicle & Trip */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <VehicleSettings vehicle={vehicle} onChange={handleVehicleChange} />
           <RouteCalculator
@@ -182,7 +235,22 @@ export const App: React.FC = () => {
           />
         </div>
 
-        {/* 4. Trip History & Saved Routes */}
+        {/* 5. Road Trip Checklist for Occasional Long Drivers */}
+        <RoadTripChecklist items={checklist} onToggleItem={handleToggleChecklist} />
+
+        {/* 6. Database Status & Backup Management */}
+        <DatabaseManager
+          vehicle={vehicle}
+          scenarios={scenarios}
+          tripDistanceMil={tripDistanceMil}
+          monthlyDistanceMil={monthlyDistanceMil}
+          startAddress={startAddress}
+          destAddress={destAddress}
+          savedTripsCount={trips.length}
+          onDataReloaded={loadDataFromDb}
+        />
+
+        {/* 7. Trip History & Saved Routes */}
         <TripHistory
           trips={trips}
           startAddress={startAddress}
@@ -197,13 +265,13 @@ export const App: React.FC = () => {
           onClearAllTrips={handleClearAllTrips}
         />
 
-        {/* 5. Monthly Distance Estimation */}
+        {/* 8. Monthly Distance Estimation */}
         <MonthlySettings
           monthlyDistanceMil={monthlyDistanceMil}
           onMonthlyDistanceChange={handleMonthlyDistanceChange}
         />
 
-        {/* 6. Scenario & Price Comparison */}
+        {/* 9. Scenario & Price Comparison */}
         <ScenarioComparison
           scenarios={scenarios}
           results={results}
@@ -214,14 +282,14 @@ export const App: React.FC = () => {
           onUpdateScenarios={handleScenariosChange}
         />
 
-        {/* 7. Visual Chart & Savings */}
+        {/* 10. Visual Chart & Savings */}
         <VisualChart
           results={results}
           tripDistanceMil={tripDistanceMil}
           monthlyDistanceMil={monthlyDistanceMil}
         />
 
-        {/* 8. Complete Summary Table */}
+        {/* 11. Complete Summary Table */}
         <SummaryTable
           results={results}
           cheapestTripId={cheapestTripId}
@@ -237,7 +305,7 @@ export const App: React.FC = () => {
           <div className="flex items-center gap-2 text-slate-400">
             <Zap className="w-4 h-4 text-emerald-400" />
             <span className="font-semibold text-slate-300">Sjöö Elbilskalkylator Pro</span>
-            <span>• IndexedDB Klientdatabas</span>
+            <span>• Optimerad för Långresor & Sällanförare</span>
             <span>• {kwhPer100KmToKwhPerMil(vehicle.consumptionKwhPer100Km)} kWh/mil</span>
           </div>
 

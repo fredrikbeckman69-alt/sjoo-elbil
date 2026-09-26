@@ -1,10 +1,49 @@
-import { VehicleProfile, ChargingScenario, ScenarioResult } from '../types';
+import { VehicleProfile, ChargingScenario, ScenarioResult, TripConditions, RoadTripAnalysis, ChecklistItem } from '../types';
 
 export const DEFAULT_VEHICLE: VehicleProfile = {
   name: 'Min Elbil',
   consumptionKwhPer100Km: 18.5, // Standard för modern elbil (motsvarar 1.85 kWh/mil)
   batteryCapacityKwh: 77.0,
 };
+
+export const DEFAULT_TRIP_CONDITIONS: TripConditions = {
+  isWinter: false,
+  hasRoofBox: false,
+  isHighwaySpeed: true, // På långresor kör man normalt motorväg
+};
+
+export const DEFAULT_CHECKLIST: ChecklistItem[] = [
+  {
+    id: 'charge-100',
+    text: 'Ladda till 100% hemma kvällen före avresa',
+    description: 'Börja med fullt batteri till lägsta möjliga hemmataxa.',
+    completed: false,
+  },
+  {
+    id: 'preheat',
+    text: 'Förvärm kupén och batteriet via bilens app',
+    description: 'Görs 20–30 min innan avfärd medan laddkabeln fortfarande är ansluten, så sparas räckvidd!',
+    completed: false,
+  },
+  {
+    id: 'tire-pressure',
+    text: 'Kontrollera däcktrycket (öka gärna +0,2 bar vid full last)',
+    description: 'Rätt däcktryck sänker rullmotståndet och kan spara 5–10% energi på motorväg.',
+    completed: false,
+  },
+  {
+    id: 'apps-ready',
+    text: 'Se till att relevanta laddappar är installerade',
+    description: 'Circle K, Tesla (öppen för alla), Ionity och EasyPark/Incharge underlättar enormt.',
+    completed: false,
+  },
+  {
+    id: 'charge-window',
+    text: 'Ladda smart: 10% till 80% längs vägen',
+    description: 'Elbilar laddar mycket långsammare över 80%. Det går snabbare att ta två korta stopp än ett långt.',
+    completed: false,
+  },
+];
 
 export const DEFAULT_SCENARIOS: ChargingScenario[] = [
   {
@@ -74,6 +113,25 @@ export function kwhPerMilToKwhPer100Km(kwhPerMil: number): number {
 }
 
 /**
+ * Beräknar effektiv förbrukning baserat på yttre faktorer (kyla, takbox, motorväg)
+ */
+export function calculateEffectiveConsumption(
+  baseKwhPer100Km: number,
+  conditions: TripConditions
+): { effectiveKwhPer100Km: number; increasePercent: number } {
+  let multiplier = 1.0;
+
+  if (conditions.isWinter) multiplier += 0.20; // +20% i kyla
+  if (conditions.hasRoofBox) multiplier += 0.15; // +15% med takbox
+  if (conditions.isHighwaySpeed) multiplier += 0.15; // +15% i 110-120 km/h
+
+  const effectiveKwhPer100Km = Number((baseKwhPer100Km * multiplier).toFixed(2));
+  const increasePercent = Math.round((multiplier - 1.0) * 100);
+
+  return { effectiveKwhPer100Km, increasePercent };
+}
+
+/**
  * Beräknar uppskattad räckvidd i mil och km baserat på batterikapacitet och förbrukning
  */
 export function calculateRange(batteryKwh: number, kwhPer100Km: number): { rangeKm: number; rangeMil: number } {
@@ -81,6 +139,88 @@ export function calculateRange(batteryKwh: number, kwhPer100Km: number): { range
   const rangeKm = Math.round((batteryKwh / kwhPer100Km) * 100);
   const rangeMil = Number((rangeKm / 10).toFixed(1));
   return { rangeKm, rangeMil };
+}
+
+/**
+ * Simulerar och analyserar en långresa specifikt anpassad för sällananvändare
+ */
+export function calculateRoadTripAnalysis(
+  distanceMil: number,
+  baseConsumptionKwhPer100Km: number,
+  batteryCapacityKwh: number,
+  conditions: TripConditions,
+  startBatteryPercent: number = 100,
+  arrivalBufferPercent: number = 15,
+  homePricePerKwh: number = 1.15,
+  fastPricePerKwh: number = 4.95
+): RoadTripAnalysis {
+  const { effectiveKwhPer100Km } = calculateEffectiveConsumption(baseConsumptionKwhPer100Km, conditions);
+  const effectiveKwhPerMil = kwhPer100KmToKwhPerMil(effectiveKwhPer100Km);
+  const { rangeKm: effectiveRangeKm, rangeMil: effectiveRangeMil } = calculateRange(batteryCapacityKwh, effectiveKwhPer100Km);
+
+  // Total energi som hela resan kräver
+  const energyNeededKwh = Number((distanceMil * effectiveKwhPerMil).toFixed(1));
+
+  // Energi i batteriet vid start (från hemmaladdning)
+  const startEnergyKwh = (batteryCapacityKwh * startBatteryPercent) / 100;
+  // Säkerhetsmarginal som ska finnas kvar vid ankomst
+  const bufferEnergyKwh = (batteryCapacityKwh * arrivalBufferPercent) / 100;
+
+  // Hur mycket energi från batteriet vid start kan vi förbruka?
+  const usableStartEnergyKwh = Math.max(0, startEnergyKwh - bufferEnergyKwh);
+
+  // Behövs laddning längs vägen?
+  let highwayKwh = 0;
+  let stopsCount = 0;
+  let chargingTimeMinutes = 0;
+
+  if (energyNeededKwh > usableStartEnergyKwh) {
+    // Energi som måste tillföras via snabbladdare längs vägen
+    highwayKwh = Number((energyNeededKwh - usableStartEnergyKwh).toFixed(1));
+
+    // På en snabbladdare laddar man normalt optimalt i fönstret 10% -> 80% (dvs 70% av batterikapaciteten)
+    const optimalFastSessionKwh = Math.max(15, batteryCapacityKwh * 0.70);
+    stopsCount = Math.ceil(highwayKwh / optimalFastSessionKwh);
+
+    // Genomsnittlig laddeffekt på moderna snabbladdare (150-300 kW laddare ger ca 90-110 kW i snitteffekt över sessionen)
+    const avgChargePowerKw = 95;
+    // Beräkna ren laddtid i minuter
+    const rawChargeMinutes = Math.round((highwayKwh / avgChargePowerKw) * 60);
+    // Lägg till 5 min per stopp för parkering, kabel och igångsättning
+    chargingTimeMinutes = rawChargeMinutes + stopsCount * 5;
+  }
+
+  // Energi från hemmet är max vad batteriet rymmer eller vad resan kräver
+  const homeKwh = Number(Math.min(energyNeededKwh, startEnergyKwh).toFixed(1));
+
+  // Realistisk kombinerad kostnad:
+  // (Hemmaladdad energi vid start * hemmataxa) + (Snabbladdad energi längs vägen * snabbladdartaxa)
+  const realisticCost = Number(((homeKwh * homePricePerKwh) + (highwayKwh * fastPricePerKwh)).toFixed(0));
+
+  // Jämförelse: Om man mot förmodan skulle snabbladda 100%
+  const cost100PercentFast = Number((energyNeededKwh * fastPricePerKwh).toFixed(0));
+
+  // Bensinreferens
+  const petrolCost = Number((distanceMil * PETROL_BENCHMARK.costPerMil).toFixed(0));
+  const savingsVsPetrol = Number(Math.max(0, petrolCost - realisticCost).toFixed(0));
+
+  return {
+    effectiveConsumptionKwhPer100Km: effectiveKwhPer100Km,
+    effectiveKwhPerMil,
+    effectiveRangeMil,
+    effectiveRangeKm,
+    energyNeededKwh,
+    stopsCount,
+    chargingTimeMinutes,
+    homeKwh,
+    highwayKwh,
+    realisticCost,
+    cost100PercentFast,
+    petrolCost,
+    savingsVsPetrol,
+    startBatteryPercent,
+    arrivalBufferPercent,
+  };
 }
 
 /**

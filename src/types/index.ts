@@ -26,6 +26,37 @@ export interface RouteInfo {
   errorMessage?: string;
 }
 
+export interface TripConditions {
+  isWinter: boolean; // +20%
+  hasRoofBox: boolean; // +15%
+  isHighwaySpeed: boolean; // +15%
+}
+
+export interface RoadTripAnalysis {
+  effectiveConsumptionKwhPer100Km: number;
+  effectiveKwhPerMil: number;
+  effectiveRangeMil: number;
+  effectiveRangeKm: number;
+  energyNeededKwh: number;
+  stopsCount: number;
+  chargingTimeMinutes: number;
+  homeKwh: number;
+  highwayKwh: number;
+  realisticCost: number;
+  cost100PercentFast: number;
+  petrolCost: number;
+  savingsVsPetrol: number;
+  startBatteryPercent: number;
+  arrivalBufferPercent: number;
+}
+
+export interface ChecklistItem {
+  id: string;
+  text: string;
+  description: string;
+  completed: boolean;
+}
+
 export interface TripCalculation {
   distanceMil: number;
   kwhPerMil: number;
@@ -70,4 +101,5 @@ export interface DatabaseBackup {
   vehicle: VehicleProfile;
   scenarios: ChargingScenario[];
   trips: SavedTrip[];
+  checklist?: ChecklistItem[];
 }
