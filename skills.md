@@ -4,12 +4,16 @@ Projektöversikt och riktlinjer för utveckling av applikationen för mätning o
 
 ---
 
-## 1. Versionshantering & Synkronisering (Git & GitHub)
+## 1. Versionshantering, Driftsättning & Notifiering (Git & GitHub)
 
-- **Lokal spegling mot GitHub:**
-  - Lokal kod och branches ska alltid speglas kontinuerligt mot GitHub.
-  - Skapa frekventa, atomiska commits med beskrivande meddelanden (Conventional Commits rekommenderas, t.ex. `feat:`, `fix:`, `refactor:`).
-  - Pusha ändringar till remote repository regelbundet så att ingen kod riskerar att gå förlorad eller hamna i osynk.
+- **Alltid driftsätta till Git (Continuous Deployment):**
+  - Lokal kod ska alltid speglas kontinuerligt mot GitHub.
+  - Varje ändring ska byggas (`npm run build`), committas med beskrivande meddelande (Conventional Commits, t.ex. `feat:`, `fix:`) och omedelbart pushas till remote `main`.
+  - Push till `main` triggar GitHub Actions deployment (`.github/workflows/deploy.yml`) till GitHub Pages på: `https://fredrikbeckman69-alt.github.io/sjoo-elbil/`.
+- **Bekräfta och meddela när det är live:**
+  - Agenten ska alltid invänta eller kontrollera att GitHub Actions-driftsättningen slutförts med framgång.
+  - Agenten ska alltid i sitt svar uttryckligen meddela användaren att koden är driftsatt och live på GitHub Pages.
+  - Vid frontend-ändringar ska användaren påminnas om webbläsarcache och vid behov instrueras att göra en hård uppdatering (Shift+Reload eller stänga och öppna appfliken).
 - **Autentisering & Åtkomst:**
   - Använd samma inloggning och behörighetsprofil till Git/GitHub som till AG (Auto-GPT / Agent / Admin / API Gateway).
   - Se till att SSH-nycklar eller Personal Access Tokens (PAT) är konfigurerade och verifierade för enhetlig autentisering mellan verktygen.
