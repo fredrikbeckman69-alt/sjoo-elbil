@@ -16,6 +16,7 @@ export interface UserAccount {
   createdAt: string;
   vehicleProfile: VehicleProfile;
   color?: string;
+  cloudDocId?: string; // Privat molndokument-ID för synkning mellan användarens egna enheter
 }
 
 

@@ -57,7 +57,7 @@ export const HeaderHero: React.FC<HeaderHeroProps> = ({
                 type="button"
                 onClick={onManualSync}
                 className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-900/85 hover:bg-slate-800 border border-cyan-500/40 text-cyan-300 text-xs font-medium backdrop-blur-md transition active:scale-95 shadow-md cursor-pointer"
-                title="Klicka för att tvinga molnsynkronisering och hämta de absolut senaste inmatade uppgifterna"
+                title={`Molnsynk aktiv för ${currentUser?.ownerName || 'din profil'} (${currentUser?.regnr || ''}). Dina inställningar och tillägg i databasen sparas så att de är åtkomliga från alla dina enheter (t.ex. iPad och mobil). Profilen är privat och informationen delas inte med andra användare.`}
               >
                 <Cloud className={`w-3.5 h-3.5 ${isSyncing ? 'text-amber-400 animate-bounce' : 'text-cyan-400'}`} />
                 <span className="hidden xs:inline">Molndatabas:</span>
@@ -67,7 +67,7 @@ export const HeaderHero: React.FC<HeaderHeroProps> = ({
                   </span>
                 ) : (
                   <span className="text-[10px] text-emerald-300 font-mono flex items-center gap-1">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span> Delad för alla
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span> Synkad för dina enheter
                     {lastSyncedAt && ` (${lastSyncedAt.toLocaleTimeString('sv-SE', { hour: '2-digit', minute: '2-digit' })})`}
                   </span>
                 )}

@@ -9,6 +9,7 @@ import {
   CheckCircle2,
   AlertCircle,
   Loader2,
+  AlertTriangle,
 } from 'lucide-react';
 import { UserAccount } from '../types';
 import {
@@ -292,6 +293,14 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
 
             {isChangingPin ? (
               <div className="space-y-3 pt-2 border-t border-slate-800">
+                <div className="p-2.5 bg-amber-500/15 border border-amber-500/40 rounded-xl text-amber-200 text-xs flex items-start gap-2">
+                  <AlertTriangle className="w-4 h-4 text-amber-400 flex-shrink-0 mt-0.5" />
+                  <span className="text-[11px] leading-snug">
+                    <strong className="text-amber-300 font-bold block">Kom ihåg den nya koden:</strong>
+                    Pinkoden är unik för din bil och kan av säkerhetsskäl <strong>inte återställas</strong> om den glöms bort!
+                  </span>
+                </div>
+
                 <div>
                   <label className="block text-[11px] text-slate-300 mb-1">
                     Nuvarande 4-siffrig pinkod:

@@ -64,13 +64,14 @@ export function getDatabase(): Promise<IDBDatabase> {
 // ----------------------------------------------------
 // SETTINGS
 // ----------------------------------------------------
-export async function getSetting<T>(key: string, defaultValue: T): Promise<T> {
+export async function getSetting<T>(key: string, defaultValue: T, userId?: string): Promise<T> {
+  const storeKey = userId ? `${userId.trim().toUpperCase()}_${key}` : key;
   try {
     const db = await getDatabase();
     return new Promise((resolve) => {
       const tx = db.transaction(STORES.SETTINGS, 'readonly');
       const store = tx.objectStore(STORES.SETTINGS);
-      const req = store.get(key);
+      const req = store.get(storeKey);
 
       req.onsuccess = () => {
         if (req.result && req.result.value !== undefined) {
@@ -85,63 +86,66 @@ export async function getSetting<T>(key: string, defaultValue: T): Promise<T> {
       };
     });
   } catch (error) {
-    console.warn(`IndexedDB getSetting fel för ${key}:`, error);
+    console.warn(`IndexedDB getSetting fel för ${storeKey}:`, error);
     return defaultValue;
   }
 }
 
-export async function setSetting<T>(key: string, value: T): Promise<void> {
+export async function setSetting<T>(key: string, value: T, userId?: string): Promise<void> {
+  const storeKey = userId ? `${userId.trim().toUpperCase()}_${key}` : key;
   try {
     const db = await getDatabase();
     return new Promise((resolve, reject) => {
       const tx = db.transaction(STORES.SETTINGS, 'readwrite');
       const store = tx.objectStore(STORES.SETTINGS);
-      const req = store.put({ key, value });
+      const req = store.put({ key: storeKey, value });
 
       req.onsuccess = () => resolve();
       req.onerror = () => reject(req.error);
     });
   } catch (error) {
-    console.warn(`IndexedDB setSetting fel för ${key}:`, error);
+    console.warn(`IndexedDB setSetting fel för ${storeKey}:`, error);
   }
 }
 
 // ----------------------------------------------------
 // VEHICLES
 // ----------------------------------------------------
-export async function getActiveVehicle(): Promise<VehicleProfile> {
+export async function getActiveVehicle(userId?: string): Promise<VehicleProfile> {
+  const vehicleKey = userId ? `${userId.trim().toUpperCase()}_vehicle` : 'primary_vehicle';
   try {
     const db = await getDatabase();
     return new Promise((resolve) => {
       const tx = db.transaction(STORES.VEHICLES, 'readonly');
       const store = tx.objectStore(STORES.VEHICLES);
-      const req = store.get('primary_vehicle');
+      const req = store.get(vehicleKey);
 
       req.onsuccess = () => {
         if (req.result) {
           resolve(req.result as VehicleProfile);
         } else {
-          resolve({ ...DEFAULT_VEHICLE, id: 'primary_vehicle' });
+          resolve({ ...DEFAULT_VEHICLE, id: vehicleKey });
         }
       };
 
       req.onerror = () => {
-        resolve({ ...DEFAULT_VEHICLE, id: 'primary_vehicle' });
+        resolve({ ...DEFAULT_VEHICLE, id: vehicleKey });
       };
     });
   } catch (error) {
     console.warn('IndexedDB getActiveVehicle fel:', error);
-    return { ...DEFAULT_VEHICLE, id: 'primary_vehicle' };
+    return { ...DEFAULT_VEHICLE, id: vehicleKey };
   }
 }
 
-export async function saveActiveVehicle(vehicle: VehicleProfile): Promise<void> {
+export async function saveActiveVehicle(vehicle: VehicleProfile, userId?: string): Promise<void> {
+  const vehicleKey = userId ? `${userId.trim().toUpperCase()}_vehicle` : 'primary_vehicle';
   try {
     const db = await getDatabase();
     return new Promise((resolve, reject) => {
       const tx = db.transaction(STORES.VEHICLES, 'readwrite');
       const store = tx.objectStore(STORES.VEHICLES);
-      const req = store.put({ ...vehicle, id: 'primary_vehicle' });
+      const req = store.put({ ...vehicle, id: vehicleKey });
 
       req.onsuccess = () => resolve();
       req.onerror = () => reject(req.error);
@@ -152,9 +156,18 @@ export async function saveActiveVehicle(vehicle: VehicleProfile): Promise<void> 
 }
 
 // ----------------------------------------------------
-// SCENARIOS
+// SCENARIOS (Privata och isolerade per användarprofil)
 // ----------------------------------------------------
-export async function getScenarios(): Promise<ChargingScenario[]> {
+export async function getScenarios(userId?: string): Promise<ChargingScenario[]> {
+  if (userId) {
+    const userScenarios = await getSetting<ChargingScenario[]>(
+      'scenarios',
+      [...DEFAULT_SCENARIOS],
+      userId
+    );
+    return userScenarios && userScenarios.length > 0 ? userScenarios : [...DEFAULT_SCENARIOS];
+  }
+
   try {
     const db = await getDatabase();
     return new Promise((resolve) => {
@@ -166,7 +179,6 @@ export async function getScenarios(): Promise<ChargingScenario[]> {
         if (req.result && req.result.length > 0) {
           resolve(req.result as ChargingScenario[]);
         } else {
-          // Ladda in standard och spara om tomt
           saveAllScenarios(DEFAULT_SCENARIOS);
           resolve([...DEFAULT_SCENARIOS]);
         }
@@ -182,13 +194,17 @@ export async function getScenarios(): Promise<ChargingScenario[]> {
   }
 }
 
-export async function saveAllScenarios(scenarios: ChargingScenario[]): Promise<void> {
+export async function saveAllScenarios(scenarios: ChargingScenario[], userId?: string): Promise<void> {
+  if (userId) {
+    await setSetting('scenarios', scenarios, userId);
+  }
+
   try {
     const db = await getDatabase();
     return new Promise((resolve, reject) => {
       const tx = db.transaction(STORES.SCENARIOS, 'readwrite');
       const store = tx.objectStore(STORES.SCENARIOS);
-      store.clear(); // Rensa gamla så ordning och ändringar speglas exakt
+      store.clear();
 
       scenarios.forEach((s) => store.put(s));
 

@@ -4,6 +4,7 @@ import {
   SavedTrip,
   TripConditions,
   ChecklistItem,
+  UserAccount,
 } from '../types';
 import {
   DEFAULT_VEHICLE,
@@ -38,6 +39,29 @@ export interface SyncStatus {
 const CLOUD_STORAGE_KEY = 'sjoo_cloud_doc_id';
 export const DEFAULT_CLOUD_DOC_ID = 'ff808181a09d98f701a0dce86db71af9';
 const API_BASE_URL = 'https://api.restful-api.dev/objects';
+
+let activeSyncUser: UserAccount | null = null;
+
+export function setActiveSyncUser(user: UserAccount | null): void {
+  activeSyncUser = user;
+  if (user) {
+    const docId =
+      user.cloudDocId ||
+      (user.id.toUpperCase() === 'FFM56R'
+        ? DEFAULT_CLOUD_DOC_ID
+        : `doc_${user.regnr.toLowerCase()}`);
+    setCloudDocId(docId);
+    updateSyncStatus({ cloudDocId: docId });
+    // Hämta profilens specifika molndata
+    fetchLatestCloudState();
+  } else {
+    updateSyncStatus({ isSyncing: false, error: null });
+  }
+}
+
+export function getActiveSyncUser(): UserAccount | null {
+  return activeSyncUser;
+}
 
 export function getCloudDocId(): string {
   try {
@@ -285,6 +309,8 @@ async function executePush(): Promise<void> {
 
   try {
     const compactPayload = {
+      ownerId: activeSyncUser?.id,
+      regnr: activeSyncUser?.regnr,
       sc: compactScenarios(currentLocalState.scenarios),
       vh: {
         n: currentLocalState.vehicle.name,
@@ -305,7 +331,7 @@ async function executePush(): Promise<void> {
     const raw = JSON.stringify(compactPayload);
 
     const reqBody = {
-      name: 'sjoo_shared_state',
+      name: `sjoo_profile_${activeSyncUser?.regnr || 'state'}`,
       data: {
         raw,
         updatedAt: currentLocalState.updatedAt,
@@ -348,10 +374,10 @@ export function startAutoSync(onRemoteUpdate: (state: CloudAppState) => void): (
   // 1. Initial hämtning direkt
   fetchLatestCloudState();
 
-  // 2. Pollning var 15:e sekund
+  // 2. Skonsam pollning var 60:e sekund för att spara nätverksresurser
   const intervalId = setInterval(() => {
     fetchLatestCloudState();
-  }, 15000);
+  }, 60000);
 
   // 3. Omedelbar hämtning när användaren återvänder till fliken/fönstret
   const handleVisibilityChange = () => {

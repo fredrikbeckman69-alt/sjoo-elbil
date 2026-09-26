@@ -18,6 +18,7 @@ import {
   Camera,
   Trash2,
   UserPlus,
+  AlertTriangle,
 } from 'lucide-react';
 import { UserAccount, VehicleProfile } from '../types';
 import {
@@ -487,6 +488,19 @@ export const LoginPage: React.FC<LoginPageProps> = ({
               )}
             </div>
 
+            {/* SUPERTYDLIG INFORMATION OM PINKOD */}
+            <div className="p-2.5 sm:p-3 bg-amber-500/15 border-2 border-amber-500/50 rounded-2xl text-amber-200 text-xs flex items-start gap-2.5 shadow-md">
+              <AlertTriangle className="w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0 text-amber-400 mt-0.5 animate-pulse" />
+              <div className="leading-snug text-left">
+                <span className="font-extrabold text-amber-300 uppercase tracking-wide block text-[11px] mb-0.5">
+                  ⚠️ VIKTIGT: Tappa inte bort pinkoden!
+                </span>
+                <span className="text-[11px] text-amber-100/90">
+                  Pinkoden är unik för din profil och kan av säkerhetsskäl <strong className="text-white underline font-bold">inte återställas</strong>. Skriv upp koden och spara den på en säker plats.
+                </span>
+              </div>
+            </div>
+
             {/* VISUELLA PIN-PRICKAR (4 SIFFROR) */}
             <div className="text-center pt-1">
               <div className="text-[11px] font-medium text-slate-400 mb-1.5 flex items-center justify-center gap-1.5">
@@ -795,9 +809,19 @@ export const LoginPage: React.FC<LoginPageProps> = ({
 
             {/* Skapa fyrsiffrig pinkod */}
             <div className="p-3 bg-slate-950/80 border border-slate-800 rounded-2xl space-y-3">
+              <div className="p-2.5 bg-amber-500/15 border border-amber-500/50 rounded-xl text-amber-200 text-xs flex items-start gap-2 shadow-sm">
+                <AlertTriangle className="w-4 h-4 text-amber-400 flex-shrink-0 mt-0.5" />
+                <div className="leading-snug text-left">
+                  <strong className="text-amber-300 font-bold block text-xs uppercase tracking-wider mb-0.5">
+                    ⚠️ VIKTIGT: Pinkoden kan INTE återställas!
+                  </strong>
+                  Välj en 4-siffrig pinkod du kommer ihåg. Koden är strikt unik för ditt konto och kan <strong className="text-white underline font-bold">inte återställas</strong> vid förlust.
+                </div>
+              </div>
+
               <div className="flex items-center gap-1.5 text-xs font-bold text-white">
                 <KeyRound className="w-3.5 h-3.5 text-emerald-400" />
-                <span>Välj en valfri fyrsiffrig pinkod (0000–9999):</span>
+                <span>Välj din personliga fyrsiffriga pinkod (0000–9999):</span>
               </div>
 
               <div className="grid grid-cols-2 gap-3">

@@ -364,12 +364,12 @@ export const OperatorRoutePlanner: React.FC<OperatorRoutePlannerProps> = ({
 
           {/* Detaljerad kostnadsuppdelning: Hemma vid start vs Snabbladdning */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
-            <div className="bg-slate-900/80 border border-slate-800/80 rounded-lg p-2.5 flex items-center justify-between min-w-0 overflow-hidden">
-              <div className="flex items-center gap-2 min-w-0 overflow-hidden">
-                <div className="w-2 h-2 rounded-full bg-emerald-400 shrink-0" />
-                <div className="min-w-0 overflow-hidden">
-                  <div className="font-semibold text-slate-200 truncate">Start från hemmet</div>
-                  <div className="text-[10px] text-slate-400 font-mono-numbers truncate">
+            <div className="bg-slate-900/80 border border-slate-800/80 rounded-lg p-2.5 flex items-center justify-between min-w-0">
+              <div className="flex items-center gap-2 min-w-0">
+                <div className="w-2.5 h-2.5 rounded-full bg-emerald-400 shrink-0" />
+                <div className="min-w-0">
+                  <div className="font-semibold text-slate-200">Start från hemmet</div>
+                  <div className="text-[11px] text-slate-400 font-mono-numbers">
                     {optimizationResult.homeChargeKwh} kWh à {homePricePerKwh.toFixed(2)} kr
                   </div>
                 </div>
@@ -379,14 +379,14 @@ export const OperatorRoutePlanner: React.FC<OperatorRoutePlannerProps> = ({
               </span>
             </div>
 
-            <div className="bg-slate-900/80 border border-slate-800/80 rounded-lg p-2.5 flex items-center justify-between min-w-0 overflow-hidden">
-              <div className="flex items-center gap-2 min-w-0 overflow-hidden">
-                <div className="w-2 h-2 rounded-full bg-amber-400 shrink-0" />
-                <div className="min-w-0 overflow-hidden">
-                  <div className="font-semibold text-slate-200 truncate">
+            <div className="bg-slate-900/80 border border-slate-800/80 rounded-lg p-2.5 flex items-center justify-between min-w-0">
+              <div className="flex items-center gap-2 min-w-0">
+                <div className="w-2.5 h-2.5 rounded-full bg-amber-400 shrink-0" />
+                <div className="min-w-0">
+                  <div className="font-semibold text-slate-200">
                     {selectedOperator.name}
                   </div>
-                  <div className="text-[10px] text-slate-400 font-mono-numbers truncate">
+                  <div className="text-[11px] text-slate-400 font-mono-numbers">
                     {optimizationResult.totalFastChargeKwh} kWh à {priceDcKwh.toFixed(2)} kr
                   </div>
                 </div>
@@ -399,14 +399,14 @@ export const OperatorRoutePlanner: React.FC<OperatorRoutePlannerProps> = ({
         </div>
 
         {/* Optimala laddstopp längs rutten */}
-        <div className="space-y-2.5">
-          <div className="flex items-center justify-between">
+        <div className="space-y-3">
+          <div className="flex flex-wrap items-center justify-between gap-2">
             <h3 className="text-xs font-bold text-slate-300 uppercase tracking-wide flex items-center gap-1.5">
               <BatteryCharging className="w-4 h-4 text-cyan-400" />
               Optimala laddstopp längs vägen
             </h3>
             {optimizationResult.totalStops > 0 && (
-              <span className="text-[11px] font-semibold text-cyan-400 font-mono-numbers">
+              <span className="text-xs font-semibold text-cyan-400 font-mono-numbers bg-cyan-500/10 px-2 py-0.5 rounded-md border border-cyan-500/20">
                 {optimizationResult.totalStops} {optimizationResult.totalStops === 1 ? 'stopp' : 'stopp'} (~{optimizationResult.totalChargingTimeMinutes} min laddtid)
               </span>
             )}
@@ -429,50 +429,62 @@ export const OperatorRoutePlanner: React.FC<OperatorRoutePlannerProps> = ({
 
           {/* Scenario 2: Laddstopp identifierade och schemalagda */}
           {!optimizationResult.isCoveredWithoutStops && optimizationResult.stops.length > 0 && (
-            <div className="space-y-2">
+            <div className="space-y-2.5">
               {optimizationResult.stops.map((stop: OptimalChargingStop, index: number) => (
                 <div
                   key={index}
-                  className="bg-slate-950/70 border border-slate-800 rounded-xl p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs"
+                  className="bg-slate-950/80 border border-slate-800 hover:border-slate-700/80 rounded-xl p-3.5 space-y-2.5 transition shadow-sm"
                 >
-                  <div className="flex items-start gap-2.5 min-w-0">
-                    <div className="w-6 h-6 rounded-lg bg-amber-500/20 text-amber-300 font-bold flex items-center justify-center shrink-0 border border-amber-500/30 text-xs">
-                      {index + 1}
-                    </div>
-                    <div className="truncate">
-                      <div className="font-bold text-white truncate flex items-center gap-1.5">
-                        <span className="truncate">{stop.station.name}</span>
-                        {stop.powerKw > 0 && (
-                          <span className="text-[10px] px-1.5 py-0.2 rounded bg-cyan-500/10 text-cyan-300 border border-cyan-500/20 shrink-0 font-mono-numbers">
-                            {stop.powerKw} kW
+                  {/* Övre rad: Nummer, Stationsnamn, Effekt och Kostnad */}
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex items-start gap-2.5 min-w-0 flex-1">
+                      <div className="w-6 h-6 rounded-lg bg-amber-500/20 text-amber-300 font-bold flex items-center justify-center shrink-0 border border-amber-500/30 text-xs mt-0.5">
+                        {index + 1}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-1.5 font-bold text-white text-sm">
+                          <span className="text-white font-bold leading-tight">{stop.station.name}</span>
+                          {stop.powerKw > 0 && (
+                            <span className="text-[10px] px-2 py-0.5 rounded-full bg-cyan-500/10 text-cyan-300 border border-cyan-500/30 font-mono-numbers font-semibold shrink-0">
+                              {stop.powerKw} kW
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Plats & Milstolpe utan förkortningar eller dubblering */}
+                        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-slate-400 text-xs mt-1">
+                          <div className="flex items-center gap-1 text-slate-300">
+                            <MapPin className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
+                            <span>{stop.streetAndCity || 'Längs resvägen'}</span>
+                          </div>
+                          <span className="text-slate-600">•</span>
+                          <span className="text-amber-400/90 font-mono-numbers font-medium">
+                            Milstolpe: {stop.milestoneMil} mil ({Math.round(stop.milestoneMil * 10)} km)
                           </span>
-                        )}
+                        </div>
                       </div>
-                      <div className="text-[11px] text-slate-400 truncate flex items-center gap-1 mt-0.5">
-                        <MapPin className="w-3 h-3 text-slate-500 shrink-0" />
-                        <span className="truncate">{stop.streetAndCity || stop.station.city || 'Längs rutten'}</span>
-                        <span className="text-slate-500">•</span>
-                        <span className="text-amber-400/90 font-mono-numbers font-medium">
-                          Milstolpe: {stop.milestoneMil} mil
-                        </span>
-                      </div>
+                    </div>
+
+                    {/* Kostnad */}
+                    <div className="bg-slate-900 border border-slate-800 rounded-lg px-3 py-1.5 text-right shrink-0">
+                      <span className="text-sm font-bold text-amber-300 font-mono-numbers block">
+                        {stop.costSek} kr
+                      </span>
                     </div>
                   </div>
 
-                  <div className="flex items-center justify-between sm:justify-end gap-3 shrink-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-800/80">
-                    <div className="text-right">
-                      <div className="text-[11px] text-slate-300 font-medium font-mono-numbers">
-                        Ladda {stop.batteryArrivalPercent}% ➔ {stop.batteryDeparturePercent}%
-                      </div>
-                      <div className="text-[10px] text-slate-400 font-mono-numbers flex items-center justify-end gap-1">
-                        <Clock className="w-3 h-3 text-cyan-400" />
-                        ca {stop.chargingTimeMinutes} min (+{stop.kwhToCharge} kWh)
-                      </div>
+                  {/* Nedre rad: Tydliga informationspiller för laddning och tid */}
+                  <div className="pt-2 border-t border-slate-800/80 flex flex-wrap items-center justify-between gap-2 text-xs">
+                    <div className="flex items-center gap-1.5 text-slate-300 font-mono-numbers bg-slate-900/90 px-2.5 py-1 rounded-lg border border-slate-800">
+                      <BatteryCharging className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                      <span>Ladda {stop.batteryArrivalPercent}% ➔ {stop.batteryDeparturePercent}%</span>
+                      <span className="text-slate-500">|</span>
+                      <span className="text-emerald-400 font-semibold">+{stop.kwhToCharge} kWh</span>
                     </div>
-                    <div className="bg-slate-900 border border-slate-800 rounded-lg px-2.5 py-1 text-right">
-                      <span className="text-xs font-bold text-amber-300 font-mono-numbers block">
-                        {stop.costSek} kr
-                      </span>
+
+                    <div className="flex items-center gap-1.5 text-slate-300 font-mono-numbers bg-slate-900/90 px-2.5 py-1 rounded-lg border border-slate-800">
+                      <Clock className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
+                      <span>ca {stop.chargingTimeMinutes} min laddtid</span>
                     </div>
                   </div>
                 </div>

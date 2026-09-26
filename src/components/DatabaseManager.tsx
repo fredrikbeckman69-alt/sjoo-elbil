@@ -111,7 +111,7 @@ export const DatabaseManager: React.FC<DatabaseManagerProps> = ({
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <h2 className="text-lg font-bold text-white tracking-tight">Delad Molndatabas</h2>
+              <h2 className="text-lg font-bold text-white tracking-tight">Molnsynk för dina enheter</h2>
               {isSyncing ? (
                 <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-500/20 border border-amber-500/40 text-amber-300 text-[10px] font-semibold">
                   <RefreshCw className="w-2.5 h-2.5 animate-spin" />
@@ -125,12 +125,12 @@ export const DatabaseManager: React.FC<DatabaseManagerProps> = ({
               ) : (
                 <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 text-[10px] font-semibold">
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-                  Realtidssynkad för alla
+                  Synkad för din profil
                 </span>
               )}
             </div>
             <p className="text-xs text-slate-400">
-              Ändringar du eller andra användare gör slår igenom automatiskt för alla enheter.
+              Dina inställningar och tillägg i databasen sparas så att de är åtkomliga från alla dina enheter (iPad, mobil och dator). Profilen är privat och delas inte med andra profiler.
             </p>
           </div>
         </div>
@@ -224,7 +224,7 @@ export const DatabaseManager: React.FC<DatabaseManagerProps> = ({
           <div className="text-[10px] text-slate-400 uppercase">Molnstatus</div>
           <div className="font-bold text-emerald-400 font-mono-numbers flex items-center gap-1">
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
-            Aktiv & Delad
+            Synkad för din profil
           </div>
         </div>
 

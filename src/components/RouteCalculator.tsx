@@ -133,6 +133,29 @@ export const RouteCalculator: React.FC<RouteCalculatorProps> = ({
     }
   };
 
+  const handleSelectPreset = async (preset: (typeof SWEDISH_ROUTE_PRESETS)[0]) => {
+    onStartAddressChange(preset.start);
+    onDestAddressChange(preset.dest);
+    handleWaypointsChange([]);
+    const targetDist = isRoundTrip ? preset.distanceMil * 2 : preset.distanceMil;
+    onDistanceChange(targetDist);
+
+    // Hämta ruttkoordinater asynkront via OSRM för optimal korridorsökning av laddstationer
+    try {
+      setLoading(true);
+      setError(null);
+      const res = await calculateRoute(preset.start, preset.dest, []);
+      setRouteResult(res);
+      if (onRouteCalculated) {
+        onRouteCalculated(res);
+      }
+    } catch {
+      // Fortsätt lugnt med förinställd distans om OSRM misslyckas
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleManualDistanceChange = (valStr: string) => {
     const val = parseFloat(valStr.replace(',', '.'));
     if (!isNaN(val) && val >= 0) {
@@ -332,13 +355,7 @@ export const RouteCalculator: React.FC<RouteCalculatorProps> = ({
                   <button
                     key={preset.name}
                     type="button"
-                    onClick={() => {
-                      onStartAddressChange(preset.start);
-                      onDestAddressChange(preset.dest);
-                      handleWaypointsChange([]);
-                      onDistanceChange(targetDist);
-                      setRouteResult(null);
-                    }}
+                    onClick={() => handleSelectPreset(preset)}
                     className={`px-2.5 py-2 rounded-xl text-left border transition flex items-center justify-between gap-1 shadow-sm min-w-0 ${
                       isSelected
                         ? 'bg-cyan-500/20 border-cyan-500/60 text-white shadow-cyan-500/10'

@@ -1,4 +1,4 @@
-﻿import { ChargingStation, VehicleProfile, TripConditions } from '../types';
+import { ChargingStation, VehicleProfile, TripConditions } from '../types';
 import { getInitialChargingStations } from './chargingStations';
 import {
   calculateEffectiveConsumption,
@@ -312,7 +312,7 @@ export function findOptimalChargingStopsAlongRoute(params: {
 
     const stationObj: ChargingStation = chosenStation?.station || {
       id: 999000 + stops.length,
-      name: `${operatorName} Längs vägen`,
+      name: `${operatorName} Snabbladdare`,
       lat: 0,
       lon: 0,
       operator: operatorName,
@@ -321,13 +321,19 @@ export function findOptimalChargingStopsAlongRoute(params: {
       chademo: false,
       type2: false,
       maxPowerKw: stationPower,
-      street: `Milstolpe ${stopMilestone} mil`,
-      city: 'Längs rutten',
+      street: null,
+      city: 'Längs färdvägen',
     };
 
-    const streetAndCity = stationObj.street && stationObj.city
-      ? `${stationObj.street}, ${stationObj.city}`
-      : stationObj.city || stationObj.street || `Vid km ${Math.round(stopMilestone * 10)}`;
+    let streetAndCity = 'Längs färdvägen';
+    if (chosenStation?.station) {
+      const s = chosenStation.station;
+      if (s.city && s.street && !s.street.toLowerCase().includes('milstolpe')) {
+        streetAndCity = `${s.city} (${s.street})`;
+      } else {
+        streetAndCity = s.city || s.street || 'Längs rutten';
+      }
+    }
 
     stops.push({
       station: stationObj,

@@ -21,6 +21,7 @@ export const DEFAULT_ACCOUNTS: UserAccount[] = [
     name: 'Cupra Born 58',
     pinCode: '7289',
     createdAt: '2025-01-01T00:00:00.000Z',
+    cloudDocId: 'ff808181a09d98f701a0dce86db71af9', // Egen dedikerad molnsynk för Markus Sjöö
     vehicleProfile: {
       id: 'FFM56R',
       name: 'Cupra Born 58',
@@ -36,6 +37,7 @@ export const DEFAULT_ACCOUNTS: UserAccount[] = [
     name: 'Standard Elbil',
     pinCode: '0000',
     createdAt: '2025-01-01T00:00:00.000Z',
+    cloudDocId: 'doc_demo_min_bil',
     vehicleProfile: {
       id: 'MIN-BIL',
       name: 'Standard Elbil',
@@ -93,9 +95,10 @@ export async function getUserAccounts(): Promise<UserAccount[]> {
 
     const ffm = accounts.find((a) => a.id.toUpperCase() === 'FFM56R' || a.regnr.toUpperCase() === 'FFM56R');
     if (ffm) {
-      if (ffm.ownerName !== 'Markus Sjöö' || ffm.pinCode === '1234') {
+      if (ffm.ownerName !== 'Markus Sjöö' || ffm.pinCode === '1234' || !ffm.cloudDocId) {
         ffm.ownerName = 'Markus Sjöö';
         ffm.pinCode = '7289';
+        ffm.cloudDocId = 'ff808181a09d98f701a0dce86db71af9';
         needsSave = true;
       }
     } else {
@@ -148,6 +151,11 @@ export async function saveUserAccount(account: UserAccount): Promise<UserAccount
     ...account,
     id: normalizedId,
     name: cleanName,
+    cloudDocId:
+      account.cloudDocId ||
+      (normalizedId === 'FFM56R'
+        ? 'ff808181a09d98f701a0dce86db71af9'
+        : `doc_${normalizedId.toLowerCase()}`),
     vehicleProfile: cleanProfile,
   };
 

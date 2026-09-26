@@ -57,6 +57,7 @@ import {
   pushCloudState,
   fetchLatestCloudState,
   subscribeToSyncStatus,
+  setActiveSyncUser,
   SyncStatus,
 } from './services/cloudSyncService';
 
@@ -89,26 +90,28 @@ export const App: React.FC = () => {
     cloudDocId: '',
   });
 
-  // Ladda data från IndexedDB vid start
-  const loadDataFromDb = useCallback(async () => {
+  // Ladda data från IndexedDB vid start eller vid profilbyte
+  const loadDataFromDb = useCallback(async (user?: UserAccount | null) => {
     try {
+      const activeId = user?.id;
       const [v, sc, tDist, mDist, sAddr, dAddr, trList, cond, chk, tab, cachedFuel, roundTrip, savedWaypoints] = await Promise.all([
-        getActiveVehicle(),
-        getScenarios(),
-        getSetting<number>('tripDistanceMil', 42),
-        getSetting<number>('monthlyDistanceMil', 125),
-        getSetting<string>('startAddress', 'Stockholm'),
-        getSetting<string>('destAddress', 'Sälen'),
+        getActiveVehicle(activeId),
+        getScenarios(activeId),
+        getSetting<number>('tripDistanceMil', 42, activeId),
+        getSetting<number>('monthlyDistanceMil', 125, activeId),
+        getSetting<string>('startAddress', 'Stockholm', activeId),
+        getSetting<string>('destAddress', 'Sälen', activeId),
         getAllTrips(),
-        getSetting<TripConditions>('tripConditions', DEFAULT_TRIP_CONDITIONS),
-        getSetting<ChecklistItem[]>('tripChecklist', DEFAULT_CHECKLIST),
-        getSetting<AppTab>('activeTab', 'calculator'),
+        getSetting<TripConditions>('tripConditions', DEFAULT_TRIP_CONDITIONS, activeId),
+        getSetting<ChecklistItem[]>('tripChecklist', DEFAULT_CHECKLIST, activeId),
+        getSetting<AppTab>('activeTab', 'calculator', activeId),
         getSetting<FuelPriceData>('petrolPriceData', DEFAULT_FUEL_PRICE),
-        getSetting<boolean>('isRoundTrip', false),
-        getSetting<string[]>('waypoints', []),
+        getSetting<boolean>('isRoundTrip', false, activeId),
+        getSetting<string[]>('waypoints', [], activeId),
       ]);
 
-      setVehicleState(v);
+      const finalVehicle = user?.vehicleProfile || v;
+      setVehicleState(finalVehicle);
       setScenariosState(sc);
       setTripDistanceMilState(tDist);
       setMonthlyDistanceMilState(mDist);
@@ -135,8 +138,11 @@ export const App: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    loadDataFromDb();
-  }, [loadDataFromDb]);
+    setActiveSyncUser(currentUser);
+    if (currentUser) {
+      loadDataFromDb(currentUser);
+    }
+  }, [currentUser, loadDataFromDb]);
 
   const handleLoginSuccess = (account: UserAccount) => {
     const cleanedAccount: UserAccount = {
@@ -149,10 +155,12 @@ export const App: React.FC = () => {
     };
     setCurrentUser(cleanedAccount);
     setLastSelectedVehicleId(account.id);
-    handleVehicleChange(cleanedAccount.vehicleProfile);
+    setActiveSyncUser(cleanedAccount);
+    loadDataFromDb(cleanedAccount);
   };
 
   const handleLogout = () => {
+    setActiveSyncUser(null);
     setCurrentUser(null);
   };
 
@@ -166,6 +174,7 @@ export const App: React.FC = () => {
       },
     };
     setCurrentUser(cleanedAccount);
+    setActiveSyncUser(cleanedAccount);
     handleVehicleChange(cleanedAccount.vehicleProfile);
   };
 
@@ -177,6 +186,7 @@ export const App: React.FC = () => {
     const resetTimer = () => {
       window.clearTimeout(timeoutId);
       timeoutId = window.setTimeout(() => {
+        setActiveSyncUser(null);
         setCurrentUser(null);
       }, 15 * 60 * 1000);
     };
@@ -191,38 +201,41 @@ export const App: React.FC = () => {
     };
   }, [currentUser]);
 
-  // Lyssna på molnsynkronisering och uppdatera lokalt tillstånd när någon användare gör ändringar
+  // Lyssna på molnsynkronisering för aktiv inloggad användare
   useEffect(() => {
+    if (!currentUser) return;
+
     const unsubStatus = subscribeToSyncStatus(setSyncStatus);
 
     const unsubAutoSync = startAutoSync((remote) => {
+      if (!currentUser) return;
       if (remote.scenarios && remote.scenarios.length > 0) {
         setScenariosState(remote.scenarios);
-        saveAllScenarios(remote.scenarios);
+        saveAllScenarios(remote.scenarios, currentUser.id);
       }
       if (remote.vehicle) {
         setVehicleState(remote.vehicle);
-        saveActiveVehicle(remote.vehicle);
+        saveActiveVehicle(remote.vehicle, currentUser.id);
       }
       if (typeof remote.tripDistanceMil === 'number') {
         setTripDistanceMilState(remote.tripDistanceMil);
-        setSetting('tripDistanceMil', remote.tripDistanceMil);
+        setSetting('tripDistanceMil', remote.tripDistanceMil, currentUser.id);
       }
       if (typeof remote.monthlyDistanceMil === 'number') {
         setMonthlyDistanceMilState(remote.monthlyDistanceMil);
-        setSetting('monthlyDistanceMil', remote.monthlyDistanceMil);
+        setSetting('monthlyDistanceMil', remote.monthlyDistanceMil, currentUser.id);
       }
       if (remote.startAddress) {
         setStartAddressState(remote.startAddress);
-        setSetting('startAddress', remote.startAddress);
+        setSetting('startAddress', remote.startAddress, currentUser.id);
       }
       if (remote.destAddress) {
         setDestAddressState(remote.destAddress);
-        setSetting('destAddress', remote.destAddress);
+        setSetting('destAddress', remote.destAddress, currentUser.id);
       }
       if (typeof remote.isRoundTrip === 'boolean') {
         setIsRoundTripState(remote.isRoundTrip);
-        setSetting('isRoundTrip', remote.isRoundTrip);
+        setSetting('isRoundTrip', remote.isRoundTrip, currentUser.id);
       }
     });
 
@@ -230,57 +243,57 @@ export const App: React.FC = () => {
       unsubStatus();
       unsubAutoSync();
     };
-  }, []);
+  }, [currentUser]);
 
   const handleManualSync = useCallback(() => {
     fetchLatestCloudState();
   }, []);
 
-  // Uppdatera och spara fordon i IndexedDB och molnet
+  // Uppdatera och spara fordon i IndexedDB och molnet (privat för aktiv användare)
   const handleVehicleChange = (updated: VehicleProfile) => {
     setVehicleState(updated);
-    saveActiveVehicle(updated);
+    saveActiveVehicle(updated, currentUser?.id);
     pushCloudState({ vehicle: updated });
   };
 
-  // Uppdatera och spara scenarier i IndexedDB och molnet
+  // Uppdatera och spara scenarier i IndexedDB och molnet (privat för aktiv användare)
   const handleScenariosChange = (updated: ChargingScenario[]) => {
     setScenariosState(updated);
-    saveAllScenarios(updated);
+    saveAllScenarios(updated, currentUser?.id);
     pushCloudState({ scenarios: updated });
   };
 
   // Uppdatera resdistans och spara i IndexedDB och molnet
   const handleTripDistanceChange = (mil: number) => {
     setTripDistanceMilState(mil);
-    setSetting('tripDistanceMil', mil);
+    setSetting('tripDistanceMil', mil, currentUser?.id);
     pushCloudState({ tripDistanceMil: mil });
   };
 
   // Uppdatera månadskörsträcka och spara i IndexedDB och molnet
   const handleMonthlyDistanceChange = (mil: number) => {
     setMonthlyDistanceMilState(mil);
-    setSetting('monthlyDistanceMil', mil);
+    setSetting('monthlyDistanceMil', mil, currentUser?.id);
     pushCloudState({ monthlyDistanceMil: mil });
   };
 
   // Uppdatera adresser och spara i IndexedDB och molnet
   const handleStartAddressChange = (addr: string) => {
     setStartAddressState(addr);
-    setSetting('startAddress', addr);
+    setSetting('startAddress', addr, currentUser?.id);
     pushCloudState({ startAddress: addr });
   };
 
   const handleDestAddressChange = (addr: string) => {
     setDestAddressState(addr);
-    setSetting('destAddress', addr);
+    setSetting('destAddress', addr, currentUser?.id);
     pushCloudState({ destAddress: addr });
   };
 
   // Uppdatera körförhållanden (väder/takbox/motorväg)
   const handleConditionsChange = (updated: TripConditions) => {
     setConditionsState(updated);
-    setSetting('tripConditions', updated);
+    setSetting('tripConditions', updated, currentUser?.id);
   };
 
   // Toggla checklista
@@ -289,13 +302,13 @@ export const App: React.FC = () => {
       item.id === id ? { ...item, completed: !item.completed } : item
     );
     setChecklistState(updated);
-    setSetting('tripChecklist', updated);
+    setSetting('tripChecklist', updated, currentUser?.id);
   };
 
   // Växla enkel resa / tur och retur
   const handleRoundTripChange = (roundTrip: boolean) => {
     setIsRoundTripState(roundTrip);
-    setSetting('isRoundTrip', roundTrip);
+    setSetting('isRoundTrip', roundTrip, currentUser?.id);
     pushCloudState({ isRoundTrip: roundTrip });
   };
 
@@ -451,10 +464,10 @@ export const App: React.FC = () => {
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col selection:bg-emerald-500 selection:text-white safe-top-p safe-bottom-p">
       {/* Top ambient glow */}
-      <div className="fixed top-0 left-1/2 -translate-x-1/2 w-full max-w-7xl h-48 bg-gradient-to-b from-cyan-500/10 via-emerald-500/5 to-transparent blur-3xl pointer-events-none -z-10" />
+      <div className="fixed top-0 left-1/2 -translate-x-1/2 w-full max-w-7xl 2xl:max-w-[1440px] h-48 bg-gradient-to-b from-cyan-500/10 via-emerald-500/5 to-transparent blur-3xl pointer-events-none -z-10" />
 
-      {/* Main Container */}
-      <main className="w-full max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6 flex-1 space-y-6">
+      {/* Main Container - Expanderad maxbredd för gott om utrymme för kalkylatorer och data */}
+      <main className="w-full max-w-7xl 2xl:max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6 flex-1 space-y-6">
         {/* User Session & Vehicle Plate Bar */}
         <div className="flex flex-wrap items-center justify-between gap-3 bg-slate-900/80 border border-slate-800 rounded-2xl px-4 py-2.5 backdrop-blur-md shadow-lg">
           <div className="flex items-center gap-3">
