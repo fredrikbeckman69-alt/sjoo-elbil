@@ -203,10 +203,14 @@ export const RoadTripPlanner: React.FC<RoadTripPlannerProps> = ({
               {analysis.realisticCost} <span className="text-sm font-normal text-slate-400">kr</span>
             </div>
           </div>
-          <div className="mt-3 pt-2 border-t border-slate-800/80 text-xs flex items-center justify-between text-emerald-400">
-            <span>Bensin motsvarande:</span>
-            <span className="line-through text-slate-500 font-mono-numbers">{analysis.petrolCost} kr</span>
-            <strong className="font-mono-numbers font-bold">-{analysis.savingsVsPetrol} kr billigare</strong>
+          <div className="mt-3 pt-2 border-t border-slate-800/80 text-xs flex flex-wrap items-center justify-between gap-1.5 text-emerald-400 min-w-0">
+            <div className="flex items-center gap-1.5 min-w-0">
+              <span className="text-slate-400">Bensin motsv:</span>
+              <span className="line-through text-slate-500 font-mono-numbers shrink-0">{analysis.petrolCost} kr</span>
+            </div>
+            <strong className="font-mono-numbers font-bold text-emerald-400 shrink-0">
+              -{analysis.savingsVsPetrol} kr billigare
+            </strong>
           </div>
         </div>
       </div>

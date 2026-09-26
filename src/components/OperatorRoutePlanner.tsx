@@ -364,29 +364,29 @@ export const OperatorRoutePlanner: React.FC<OperatorRoutePlannerProps> = ({
 
           {/* Detaljerad kostnadsuppdelning: Hemma vid start vs Snabbladdning */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
-            <div className="bg-slate-900/80 border border-slate-800/80 rounded-lg p-2.5 flex items-center justify-between">
-              <div className="flex items-center gap-2">
+            <div className="bg-slate-900/80 border border-slate-800/80 rounded-lg p-2.5 flex items-center justify-between min-w-0 overflow-hidden">
+              <div className="flex items-center gap-2 min-w-0 overflow-hidden">
                 <div className="w-2 h-2 rounded-full bg-emerald-400 shrink-0" />
-                <div>
-                  <div className="font-semibold text-slate-200">Start från hemmet</div>
-                  <div className="text-[10px] text-slate-400 font-mono-numbers">
+                <div className="min-w-0 overflow-hidden">
+                  <div className="font-semibold text-slate-200 truncate">Start från hemmet</div>
+                  <div className="text-[10px] text-slate-400 font-mono-numbers truncate">
                     {optimizationResult.homeChargeKwh} kWh à {homePricePerKwh.toFixed(2)} kr
                   </div>
                 </div>
               </div>
-              <span className="font-bold text-white font-mono-numbers">
+              <span className="font-bold text-white font-mono-numbers shrink-0 ml-2">
                 {optimizationResult.homeChargeCostSek} kr
               </span>
             </div>
 
-            <div className="bg-slate-900/80 border border-slate-800/80 rounded-lg p-2.5 flex items-center justify-between">
-              <div className="flex items-center gap-2">
+            <div className="bg-slate-900/80 border border-slate-800/80 rounded-lg p-2.5 flex items-center justify-between min-w-0 overflow-hidden">
+              <div className="flex items-center gap-2 min-w-0 overflow-hidden">
                 <div className="w-2 h-2 rounded-full bg-amber-400 shrink-0" />
-                <div className="truncate">
+                <div className="min-w-0 overflow-hidden">
                   <div className="font-semibold text-slate-200 truncate">
                     {selectedOperator.name}
                   </div>
-                  <div className="text-[10px] text-slate-400 font-mono-numbers">
+                  <div className="text-[10px] text-slate-400 font-mono-numbers truncate">
                     {optimizationResult.totalFastChargeKwh} kWh à {priceDcKwh.toFixed(2)} kr
                   </div>
                 </div>

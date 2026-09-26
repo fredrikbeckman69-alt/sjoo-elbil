@@ -195,7 +195,7 @@ export const RouteCalculator: React.FC<RouteCalculatorProps> = ({
               type="text"
               value={startAddress}
               onChange={(e) => onStartAddressChange(e.target.value)}
-              placeholder="T.ex. Stockholm Central eller Kungsgatan 1, Stockholm"
+              placeholder="T.ex. Stockholm eller adress"
               className="w-full bg-slate-900 border border-slate-700/80 rounded-lg px-3.5 py-2 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500"
             />
           </div>
@@ -203,7 +203,7 @@ export const RouteCalculator: React.FC<RouteCalculatorProps> = ({
           {/* Delresmål (Waypoints) */}
           {waypoints.map((wp, idx) => (
             <div key={idx} className="relative flex items-center gap-2">
-              <div className="flex-1">
+              <div className="flex-1 min-w-0">
                 <label className="block text-[11px] font-medium text-amber-400 mb-1 flex items-center gap-1.5">
                   <MapPin className="w-3 h-3 text-amber-400" />
                   Delresmål {idx + 1}
@@ -212,7 +212,7 @@ export const RouteCalculator: React.FC<RouteCalculatorProps> = ({
                   type="text"
                   value={wp}
                   onChange={(e) => handleWaypointChange(idx, e.target.value)}
-                  placeholder="T.ex. Linköping, Jönköping eller rastplats"
+                  placeholder="T.ex. Linköping eller rastplats"
                   className="w-full bg-slate-900 border border-amber-500/40 rounded-lg px-3.5 py-2 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-amber-400"
                 />
               </div>
@@ -233,7 +233,7 @@ export const RouteCalculator: React.FC<RouteCalculatorProps> = ({
               <button
                 type="button"
                 onClick={handleAddWaypoint}
-                className="text-[11px] font-semibold text-cyan-400 hover:text-cyan-300 flex items-center gap-1.5 bg-cyan-500/10 hover:bg-cyan-500/20 px-2.5 py-1.5 rounded-lg border border-cyan-500/20 transition active:scale-95"
+                className="text-[11px] font-semibold text-cyan-400 hover:text-cyan-300 flex items-center gap-1.5 bg-cyan-500/10 hover:bg-cyan-500/20 px-2.5 py-1.5 rounded-lg border border-cyan-500/20 transition active:scale-95 shrink-0"
               >
                 <Plus className="w-3.5 h-3.5" />
                 <span>+ Lägg till delresmål</span>
@@ -261,7 +261,7 @@ export const RouteCalculator: React.FC<RouteCalculatorProps> = ({
               type="text"
               value={destAddress}
               onChange={(e) => onDestAddressChange(e.target.value)}
-              placeholder="T.ex. Göteborg, Liseberg eller Åre"
+              placeholder="T.ex. Sälen, Göteborg eller Åre"
               className="w-full bg-slate-900 border border-slate-700/80 rounded-lg px-3.5 py-2 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500"
             />
           </div>
@@ -346,14 +346,18 @@ export const RouteCalculator: React.FC<RouteCalculatorProps> = ({
                     }`}
                     title={`${preset.start} till ${preset.dest} (${targetDist} mil)`}
                   >
-                    <div className="truncate w-full">
-                      <div className="text-[11px] font-bold truncate flex items-center gap-1">
-                        <span>{preset.icon}</span>
+                    <div className="w-full min-w-0 overflow-hidden">
+                      <div className="text-[11px] font-bold truncate flex items-center gap-1 min-w-0">
+                        <span className="shrink-0">{preset.icon}</span>
                         <span className="truncate">{preset.start} ➔ {preset.dest}</span>
                       </div>
-                      <div className="text-[10px] text-slate-400 font-mono-numbers mt-0.5 flex justify-between">
-                        <span>{targetDist} mil{isRoundTrip ? ' (t&r)' : ''}</span>
-                        {preset.description && <span className="text-slate-500 hidden sm:inline">{preset.description}</span>}
+                      <div className="text-[10px] text-slate-400 font-mono-numbers mt-0.5 flex items-center justify-between gap-1 min-w-0 overflow-hidden">
+                        <span className="font-semibold text-cyan-300/90 shrink-0">{targetDist} mil{isRoundTrip ? ' t&r' : ''}</span>
+                        {preset.description && (
+                          <span className="text-slate-500 truncate text-[9px] text-right min-w-0" title={preset.description}>
+                            {preset.description}
+                          </span>
+                        )}
                       </div>
                     </div>
                   </button>
@@ -447,15 +451,15 @@ export const RouteCalculator: React.FC<RouteCalculatorProps> = ({
             </span>
           </div>
 
-          <div className="bg-slate-950/40 border border-slate-800/80 rounded-xl p-3 flex items-center justify-between min-w-0">
+          <div className="bg-slate-950/40 border border-slate-800/80 rounded-xl p-3 flex items-center justify-between min-w-0 overflow-hidden">
             <span className="text-xs text-slate-400 shrink-0">Motsvarar:</span>
-            <div className="text-right min-w-0">
+            <div className="text-right min-w-0 overflow-hidden">
               <div className="text-sm font-bold text-white font-mono-numbers truncate">
                 {unitMode === 'mil' ? `${Math.round(distanceMil * 10)} km` : `${(distanceMil).toFixed(1)} mil`}
               </div>
               <div className="text-[10px] text-slate-400 font-medium truncate">
                 {isRoundTrip
-                  ? `Varav enkel resa: ${(displayedDistance / 2).toFixed(1)} ${unitMode}`
+                  ? `Enkel: ${(displayedDistance / 2).toFixed(1)} ${unitMode}`
                   : '1 mil = 10 km'}
               </div>
             </div>
@@ -472,15 +476,15 @@ export const RouteCalculator: React.FC<RouteCalculatorProps> = ({
                 key={item.mil}
                 type="button"
                 onClick={() => onDistanceChange(effectiveMil)}
-                className={`px-2.5 py-2 rounded-xl text-xs font-medium border transition text-center flex flex-col items-center justify-center min-w-0 ${
+                className={`px-2 py-2 rounded-xl text-xs font-medium border transition text-center flex flex-col items-center justify-center min-w-0 overflow-hidden ${
                   isSelected
                     ? 'bg-cyan-500/20 text-cyan-300 border-cyan-500/50 shadow-sm'
                     : 'bg-slate-800/40 text-slate-400 hover:text-slate-200 border-slate-800 hover:bg-slate-800'
                 }`}
               >
-                <span className="truncate font-semibold">{item.label}</span>
-                <span className="text-[11px] font-mono-numbers text-slate-400">
-                  {effectiveMil} mil{isRoundTrip ? ' (t&r)' : ''}
+                <span className="truncate font-semibold w-full">{item.label}</span>
+                <span className="text-[11px] font-mono-numbers text-slate-400 truncate w-full">
+                  {effectiveMil} mil{isRoundTrip ? ' t&r' : ''}
                 </span>
               </button>
             );
