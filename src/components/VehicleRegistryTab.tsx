@@ -458,18 +458,40 @@ export const VehicleRegistryTab: React.FC<VehicleRegistryTabProps> = ({
             </div>
           </div>
         </div>
+      </div>
 
-        {/* Kort C: Motor, Prestanda & Besiktning */}
-        <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-5 sm:p-6 shadow-xl backdrop-blur-sm">
-          <div className="flex items-center gap-2.5 pb-4 mb-4 border-b border-slate-800">
-            <div className="p-2.5 rounded-xl bg-purple-500/10 text-purple-400 border border-purple-500/20">
-              <Gauge className="w-5 h-5" />
+      {/* 5. Utökade Chassi- & Prestandaspecifikationer (Kollapsbar för ökad överblick) */}
+      <details className="group bg-slate-900/60 border border-slate-800 rounded-2xl p-5 shadow-xl transition-all hover:border-slate-700">
+        <summary className="flex items-center justify-between cursor-pointer list-none select-none">
+          <div className="flex items-center gap-2.5">
+            <div className="p-2 rounded-xl bg-purple-500/10 text-purple-400 border border-purple-500/20">
+              <Scale className="w-4 h-4" />
             </div>
             <div>
-              <h2 className="text-base font-bold text-white">Prestanda, Besiktning & Mätare</h2>
-              <p className="text-xs text-slate-400">Mätarställning och tekniska specifikationer</p>
+              <span className="text-sm font-bold text-white">Chassi, Vikter, Mått & Detaljerad Prestanda</span>
+              <p className="text-xs text-slate-400">Totalvikt, max last, yttermått, däckdimension, motor & dB</p>
             </div>
           </div>
+          <span className="text-xs font-semibold text-cyan-400 bg-cyan-950/60 border border-cyan-800/60 px-3 py-1.5 rounded-lg group-open:hidden transition">
+            Visa fler specifikationer ▾
+          </span>
+          <span className="text-xs font-semibold text-slate-400 bg-slate-800 px-3 py-1.5 rounded-lg hidden group-open:inline transition">
+            Dölj specifikationer ▴
+          </span>
+        </summary>
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-5 pt-5 border-t border-slate-800">
+          {/* Kort C: Motor, Prestanda & Besiktning */}
+          <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-5 sm:p-6 shadow-xl backdrop-blur-sm">
+            <div className="flex items-center gap-2.5 pb-4 mb-4 border-b border-slate-800">
+              <div className="p-2.5 rounded-xl bg-purple-500/10 text-purple-400 border border-purple-500/20">
+                <Gauge className="w-5 h-5" />
+              </div>
+              <div>
+                <h2 className="text-base font-bold text-white">Prestanda, Besiktning & Mätare</h2>
+                <p className="text-xs text-slate-400">Mätarställning och tekniska specifikationer</p>
+              </div>
+            </div>
 
           <div className="divide-y divide-slate-800/60 text-xs">
             <div className="py-2.5 flex justify-between items-center">
@@ -584,8 +606,9 @@ export const VehicleRegistryTab: React.FC<VehicleRegistryTabProps> = ({
           </div>
         </div>
       </div>
+    </details>
 
-      {/* 5. Tidslinje & Händelsehistorik */}
+      {/* 6. Tidslinje & Händelsehistorik */}
       {vehicleData.history && vehicleData.history.length > 0 && (
         <section className="bg-slate-900/90 border border-slate-800 rounded-2xl p-5 sm:p-6 shadow-xl backdrop-blur-sm">
           <div className="flex items-center gap-2.5 pb-4 mb-4 border-b border-slate-800">

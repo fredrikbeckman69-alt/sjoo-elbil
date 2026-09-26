@@ -7,8 +7,6 @@ import { RouteCalculator } from './components/RouteCalculator';
 import { RoadTripChecklist } from './components/RoadTripChecklist';
 import { fetchCurrentPetrolPrice, FuelPriceData, DEFAULT_FUEL_PRICE } from './services/fuelPriceService';
 import { ScenarioComparison } from './components/ScenarioComparison';
-import { VisualChart } from './components/VisualChart';
-import { SummaryTable } from './components/SummaryTable';
 import { DatabaseManager } from './components/DatabaseManager';
 import { TripHistory } from './components/TripHistory';
 import {
@@ -44,7 +42,7 @@ import { VehicleRegistryTab } from './components/VehicleRegistryTab';
 import { ChargingOperatorsTab } from './components/ChargingOperatorsTab';
 import { NavigationTabs, AppTab } from './components/NavigationTabs';
 import { CalculatedPlanCost } from './types/chargingOperators';
-import { Zap, ExternalLink, Loader2 } from 'lucide-react';
+import { Zap, ExternalLink, Loader2, Database } from 'lucide-react';
 import {
   startAutoSync,
   pushCloudState,
@@ -454,24 +452,29 @@ export const App: React.FC = () => {
         {/* 5. Road Trip Checklist for Occasional Long Drivers */}
         <RoadTripChecklist items={checklist} onToggleItem={handleToggleChecklist} />
 
-        {/* 6. Database Status & Backup Management */}
-        <DatabaseManager
-          vehicle={vehicle}
-          scenarios={scenarios}
-          tripDistanceMil={tripDistanceMil}
+        {/* 6. Månadsuppskattning för scenarier och månadskostnad */}
+        <MonthlySettings
           monthlyDistanceMil={monthlyDistanceMil}
-          startAddress={startAddress}
-          destAddress={destAddress}
-          savedTripsCount={trips.length}
-          onDataReloaded={loadDataFromDb}
-          isSyncing={syncStatus.isSyncing}
-          lastSyncedAt={syncStatus.lastSyncedAt}
-          syncError={syncStatus.error}
-          onManualSync={handleManualSync}
-          cloudDocId={syncStatus.cloudDocId}
+          onMonthlyDistanceChange={handleMonthlyDistanceChange}
         />
 
-        {/* 7. Trip History & Saved Routes */}
+        {/* 7. Komplett Pris- och Kostnadsjämförelse (Kort, Bardiagram mot bensin, Sammanställningstabell) */}
+        <ScenarioComparison
+          scenarios={scenarios}
+          results={results}
+          cheapestTripId={cheapestTripId}
+          cheapestMonthlyId={cheapestMonthlyId}
+          tripDistanceMil={tripDistanceMil}
+          monthlyDistanceMil={monthlyDistanceMil}
+          onUpdateScenarios={handleScenariosChange}
+          petrolPricePerLiter={fuelPrice.pricePerLiter}
+          petrolSource={fuelPrice.source}
+          petrolUpdatedAt={fuelPrice.updatedAt}
+          onPetrolPriceChange={handlePetrolPriceChange}
+          onRefreshPetrolPrice={handleRefreshPetrolPrice}
+        />
+
+        {/* 8. Trip History & Saved Routes */}
         <TripHistory
           trips={trips}
           startAddress={startAddress}
@@ -487,45 +490,45 @@ export const App: React.FC = () => {
           isRoundTrip={isRoundTrip}
         />
 
-        {/* 8. Månadsuppskattning för scenarier och månadskostnad */}
-        <MonthlySettings
-          monthlyDistanceMil={monthlyDistanceMil}
-          onMonthlyDistanceChange={handleMonthlyDistanceChange}
-        />
-
-        {/* 9. Scenario & Price Comparison */}
-        <ScenarioComparison
-          scenarios={scenarios}
-          results={results}
-          cheapestTripId={cheapestTripId}
-          cheapestMonthlyId={cheapestMonthlyId}
-          tripDistanceMil={tripDistanceMil}
-          monthlyDistanceMil={monthlyDistanceMil}
-          onUpdateScenarios={handleScenariosChange}
-        />
-
-        {/* 9. Visual Chart & Savings with Live Dynamic Petrol Price */}
-        <VisualChart
-          results={results}
-          tripDistanceMil={tripDistanceMil}
-          monthlyDistanceMil={monthlyDistanceMil}
-          petrolPricePerLiter={fuelPrice.pricePerLiter}
-          petrolSource={fuelPrice.source}
-          petrolUpdatedAt={fuelPrice.updatedAt}
-          onPetrolPriceChange={handlePetrolPriceChange}
-          onRefreshPetrolPrice={handleRefreshPetrolPrice}
-        />
-
-        {/* 11. Complete Summary Table */}
-          <SummaryTable
-            results={results}
-            cheapestTripId={cheapestTripId}
-            cheapestMonthlyId={cheapestMonthlyId}
-            tripDistanceMil={tripDistanceMil}
-            monthlyDistanceMil={monthlyDistanceMil}
-          />
-        </>
-      )}
+        {/* 9. Säkerhetskopiering & Databashantering (Kollapsbar för ett renare gränssnitt) */}
+        <details className="group bg-slate-900/60 border border-slate-800/80 rounded-2xl p-4 sm:p-5 transition-all hover:border-slate-700">
+          <summary className="flex items-center justify-between cursor-pointer list-none select-none">
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-xl bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">
+                <Database className="w-4 h-4" />
+              </div>
+              <div>
+                <span className="text-sm font-bold text-white">Säkerhetskopiering & Molndatabas</span>
+                <p className="text-xs text-slate-400">Exportera/importera JSON-backup, nollställ eller hantera molnsynk</p>
+              </div>
+            </div>
+            <span className="text-xs font-semibold text-cyan-400 bg-cyan-950/60 border border-cyan-800/60 px-3 py-1.5 rounded-lg group-open:hidden transition">
+              Öppna hantering ▾
+            </span>
+            <span className="text-xs font-semibold text-slate-400 bg-slate-800 px-3 py-1.5 rounded-lg hidden group-open:inline transition">
+              Dölj ▴
+            </span>
+          </summary>
+          <div className="mt-4 pt-4 border-t border-slate-800">
+            <DatabaseManager
+              vehicle={vehicle}
+              scenarios={scenarios}
+              tripDistanceMil={tripDistanceMil}
+              monthlyDistanceMil={monthlyDistanceMil}
+              startAddress={startAddress}
+              destAddress={destAddress}
+              savedTripsCount={trips.length}
+              onDataReloaded={loadDataFromDb}
+              isSyncing={syncStatus.isSyncing}
+              lastSyncedAt={syncStatus.lastSyncedAt}
+              syncError={syncStatus.error}
+              onManualSync={handleManualSync}
+              cloudDocId={syncStatus.cloudDocId}
+            />
+          </div>
+        </details>
+      </>
+    )}
     </main>
 
       {/* Footer */}
