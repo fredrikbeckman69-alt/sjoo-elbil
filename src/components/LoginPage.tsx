@@ -28,6 +28,7 @@ import {
   setLastSelectedVehicleId,
   getLastSelectedVehicleId,
   fileToResizedBase64,
+  DEFAULT_ACCOUNTS,
 } from '../services/authService';
 import {
   fetchVehicleFromRegistry,
@@ -48,10 +49,28 @@ export const LoginPage: React.FC<LoginPageProps> = ({
   // Läge: inloggning med siffersats (standard) eller skapa nytt konto
   const [mode, setMode] = useState<'login' | 'register'>('login');
 
-  // Konton
-  const [accounts, setAccounts] = useState<UserAccount[]>([]);
-  const [selectedAccountId, setSelectedAccountId] = useState<string>('');
-  const [isLoadingAccounts, setIsLoadingAccounts] = useState<boolean>(true);
+  // Konton: Initiera direkt synkront från cache eller DEFAULT_ACCOUNTS så siffersatsen och vald bil visas omedelbart
+  const [accounts, setAccounts] = useState<UserAccount[]>(() => {
+    try {
+      const local = localStorage.getItem('sjoo_user_accounts');
+      if (local) {
+        const parsed = JSON.parse(local) as UserAccount[];
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch {
+      // Ignorera
+    }
+    return [...DEFAULT_ACCOUNTS];
+  });
+
+  const [selectedAccountId, setSelectedAccountId] = useState<string>(() => {
+    const rememberedId = initialAccountId || getLastSelectedVehicleId();
+    if (rememberedId) {
+      return rememberedId;
+    }
+    return DEFAULT_ACCOUNTS[0].id;
+  });
+  const [isLoadingAccounts, setIsLoadingAccounts] = useState<boolean>(false);
 
   // Inloggnings-PIN
   const [pin, setPin] = useState<string>('');

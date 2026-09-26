@@ -94,7 +94,7 @@ export const App: React.FC = () => {
   const loadDataFromDb = useCallback(async (user?: UserAccount | null) => {
     try {
       const activeId = user?.id;
-      const [v, sc, tDist, mDist, sAddr, dAddr, trList, cond, chk, tab, cachedFuel, roundTrip, savedWaypoints] = await Promise.all([
+      const loadPromise = Promise.all([
         getActiveVehicle(activeId),
         getScenarios(activeId),
         getSetting<number>('tripDistanceMil', 42, activeId),
@@ -110,20 +110,28 @@ export const App: React.FC = () => {
         getSetting<string[]>('waypoints', [], activeId),
       ]);
 
-      const finalVehicle = user?.vehicleProfile || v;
-      setVehicleState(finalVehicle);
-      setScenariosState(sc);
-      setTripDistanceMilState(tDist);
-      setMonthlyDistanceMilState(mDist);
-      setStartAddressState(sAddr);
-      setDestAddressState(dAddr);
-      setTripsState(trList);
-      setConditionsState(cond);
-      setChecklistState(chk);
-      if (tab) setActiveTabState(tab);
-      if (cachedFuel) setFuelPriceState(cachedFuel);
-      if (typeof roundTrip === 'boolean') setIsRoundTripState(roundTrip);
-      if (Array.isArray(savedWaypoints)) setWaypointsState(savedWaypoints);
+      const timeoutPromise = new Promise<null>((resolve) => setTimeout(() => resolve(null), 2500));
+      const res = await Promise.race([loadPromise, timeoutPromise]);
+
+      if (res) {
+        const [v, sc, tDist, mDist, sAddr, dAddr, trList, cond, chk, tab, cachedFuel, roundTrip, savedWaypoints] = res;
+        const finalVehicle = user?.vehicleProfile || v;
+        setVehicleState(finalVehicle);
+        setScenariosState(sc);
+        setTripDistanceMilState(tDist);
+        setMonthlyDistanceMilState(mDist);
+        setStartAddressState(sAddr);
+        setDestAddressState(dAddr);
+        setTripsState(trList);
+        setConditionsState(cond);
+        setChecklistState(chk);
+        if (tab) setActiveTabState(tab);
+        if (cachedFuel) setFuelPriceState(cachedFuel);
+        if (typeof roundTrip === 'boolean') setIsRoundTripState(roundTrip);
+        if (Array.isArray(savedWaypoints)) setWaypointsState(savedWaypoints);
+      } else if (user?.vehicleProfile) {
+        setVehicleState(user.vehicleProfile);
+      }
 
       // Hämta färskt bensinpris asynkront och spara
       fetchCurrentPetrolPrice().then((fresh) => {
@@ -153,15 +161,15 @@ export const App: React.FC = () => {
         name: cleanVehicleDisplayName(account.vehicleProfile.name, account.regnr),
       },
     };
-    setCurrentUser(cleanedAccount);
     setLastSelectedVehicleId(account.id);
     setActiveSyncUser(cleanedAccount);
-    loadDataFromDb(cleanedAccount);
+    setCurrentUser(cleanedAccount);
   };
 
   const handleLogout = () => {
     setActiveSyncUser(null);
     setCurrentUser(null);
+    setIsDbLoaded(false);
   };
 
   const handleAccountUpdated = (updated: UserAccount) => {
@@ -188,6 +196,7 @@ export const App: React.FC = () => {
       timeoutId = window.setTimeout(() => {
         setActiveSyncUser(null);
         setCurrentUser(null);
+        setIsDbLoaded(false);
       }, 15 * 60 * 1000);
     };
 
@@ -441,15 +450,6 @@ export const App: React.FC = () => {
   const homePrice = homeScenario ? homeScenario.pricePerKwh : 1.15;
   const fastPrice = fastScenario ? fastScenario.pricePerKwh : 4.95;
 
-  if (!isDbLoaded) {
-    return (
-      <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center text-slate-300">
-        <Loader2 className="w-8 h-8 text-emerald-400 animate-spin mb-3" />
-        <p className="text-sm font-semibold">Initierar IndexedDB-klientdatabas...</p>
-      </div>
-    );
-  }
-
   // Förstasida: Inloggning och fordonsval med siffersats
   // Blockerar 100% av appen tills giltig 4-siffrig pinkod slagits in
   if (!currentUser) {
@@ -458,6 +458,16 @@ export const App: React.FC = () => {
         onLoginSuccess={handleLoginSuccess}
         initialAccountId={getLastSelectedVehicleId() || vehicle.id}
       />
+    );
+  }
+
+  // Om användaren precis loggat in och data läses in
+  if (!isDbLoaded) {
+    return (
+      <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center text-slate-300">
+        <Loader2 className="w-8 h-8 text-emerald-400 animate-spin mb-3" />
+        <p className="text-sm font-semibold">Laddar din profil...</p>
+      </div>
     );
   }
 
