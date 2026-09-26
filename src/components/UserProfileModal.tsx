@@ -134,7 +134,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
             <div>
               <h2 className="text-lg font-bold text-white">Profil & Fordonshantering</h2>
               <p className="text-xs text-slate-400">
-                Inloggad som <strong className="text-cyan-300">{currentUser.ownerName || currentUser.name}</strong> ({formatRegnrPlate(currentUser.regnr)})
+                Inloggad som <strong className="text-cyan-300">{currentUser.ownerName || cleanVehicleDisplayName(currentUser.name, currentUser.regnr)}</strong> ({formatRegnrPlate(currentUser.regnr)})
               </p>
             </div>
           </div>
