@@ -550,3 +550,5 @@ export const ChargingMap: React.FC<ChargingMapProps> = ({ onSelectStationAsDesti
     </div>
   );
 };
+
+export default ChargingMap;

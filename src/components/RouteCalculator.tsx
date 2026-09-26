@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Navigation, MapPin, Search, Loader2, Clock, CheckCircle2, AlertCircle, ArrowRightLeft, ArrowLeftRight } from 'lucide-react';
 import { calculateRoute, RouteResult, formatDuration } from '../services/routing';
+import { SWEDISH_ROUTE_PRESETS } from '../utils/calculations';
 
 interface RouteCalculatorProps {
   distanceMil: number;
@@ -39,12 +40,7 @@ export const RouteCalculator: React.FC<RouteCalculatorProps> = ({
     { label: 'Långresa', mil: 55 },
   ];
 
-  // Populära svenska exempelrutter
-  const exampleRoutes = [
-    { start: 'Stockholm', dest: 'Göteborg' },
-    { start: 'Malmö', dest: 'Helsingborg' },
-    { start: 'Uppsala', dest: 'Stockholm' },
-  ];
+
 
   const handleToggleRoundTrip = (targetRoundTrip: boolean) => {
     if (targetRoundTrip === isRoundTrip) return;
@@ -239,28 +235,48 @@ export const RouteCalculator: React.FC<RouteCalculatorProps> = ({
             </button>
           </div>
 
-          {/* Quick route suggestions - Jämnstora rutor som inte hamnar utanför */}
+          {/* Quick route suggestions */}
           <div className="pt-2 border-t border-slate-800/60">
             <span className="block text-[11px] font-medium text-slate-400 mb-1.5">
-              Förslag på vanliga rutter:
+              Populära svenska rutter:
             </span>
-            <div className="grid grid-cols-3 gap-2">
-              {exampleRoutes.map((ex, idx) => (
-                <button
-                  key={idx}
-                  type="button"
-                  onClick={() => {
-                    onStartAddressChange(ex.start);
-                    onDestAddressChange(ex.dest);
-                  }}
-                  className="px-2 py-2 rounded-xl bg-slate-900 hover:bg-slate-800/90 text-slate-300 hover:text-white text-[11px] font-medium border border-slate-800 hover:border-slate-700 transition flex flex-col sm:flex-row items-center justify-center gap-1 w-full text-center shadow-sm min-w-0"
-                  title={`${ex.start} till ${ex.dest}`}
-                >
-                  <span className="truncate">{ex.start}</span>
-                  <span className="text-cyan-400 text-[10px] shrink-0">➔</span>
-                  <span className="truncate">{ex.dest}</span>
-                </button>
-              ))}
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+              {SWEDISH_ROUTE_PRESETS.map((preset) => {
+                const targetDist = isRoundTrip ? preset.distanceMil * 2 : preset.distanceMil;
+                const isSelected =
+                  startAddress.trim().toLowerCase() === preset.start.toLowerCase() &&
+                  destAddress.trim().toLowerCase() === preset.dest.toLowerCase();
+
+                return (
+                  <button
+                    key={preset.name}
+                    type="button"
+                    onClick={() => {
+                      onStartAddressChange(preset.start);
+                      onDestAddressChange(preset.dest);
+                      onDistanceChange(targetDist);
+                      setRouteResult(null);
+                    }}
+                    className={`px-2.5 py-2 rounded-xl text-left border transition flex items-center justify-between gap-1 shadow-sm min-w-0 ${
+                      isSelected
+                        ? 'bg-cyan-500/20 border-cyan-500/60 text-white shadow-cyan-500/10'
+                        : 'bg-slate-900 hover:bg-slate-800 text-slate-300 hover:text-white border-slate-800 hover:border-slate-700'
+                    }`}
+                    title={`${preset.start} till ${preset.dest} (${targetDist} mil)`}
+                  >
+                    <div className="truncate w-full">
+                      <div className="text-[11px] font-bold truncate flex items-center gap-1">
+                        <span>{preset.icon}</span>
+                        <span className="truncate">{preset.start} ➔ {preset.dest}</span>
+                      </div>
+                      <div className="text-[10px] text-slate-400 font-mono-numbers mt-0.5 flex justify-between">
+                        <span>{targetDist} mil{isRoundTrip ? ' (t&r)' : ''}</span>
+                        {preset.description && <span className="text-slate-500 hidden sm:inline">{preset.description}</span>}
+                      </div>
+                    </div>
+                  </button>
+                );
+              })}
             </div>
           </div>
         </div>
@@ -348,7 +364,7 @@ export const RouteCalculator: React.FC<RouteCalculatorProps> = ({
               </div>
               <div className="text-[10px] text-slate-400 font-medium truncate">
                 {isRoundTrip
-                  ? `Varav enkel resa: ${isRoundTrip ? (displayedDistance / 2).toFixed(1) : displayedDistance} ${unitMode}`
+                  ? `Varav enkel resa: ${(displayedDistance / 2).toFixed(1)} ${unitMode}`
                   : '1 mil = 10 km'}
               </div>
             </div>

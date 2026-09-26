@@ -1,7 +1,8 @@
 import React from 'react';
 import { Route, Zap, Car, Sparkles, MapPin } from 'lucide-react';
+import { AppTab } from '../types';
 
-export type AppTab = 'calculator' | 'map' | 'operators' | 'registry';
+export type { AppTab };
 
 interface NavigationTabsProps {
   activeTab: AppTab;

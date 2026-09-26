@@ -1,0 +1,21 @@
+﻿{
+  "name": "Sjöö Elbilskalkylator Pro",
+  "short_name": "Sjöö Elbil",
+  "description": "Elbilsförbrukning, ruttplanerare, laddstationskarta och operatörspriser optimerad för svensk standard.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#020617",
+  "theme_color": "#020617",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'><rect width='512' height='512' rx='128' fill='%23020617'/><circle cx='256' cy='256' r='180' fill='%23059669' opacity='0.2'/><path d='M280 60L160 290h90l-30 162 140-230h-90l40-162z' fill='%2310b981'/><path d='M290 80L180 290h80l-25 135 115-195h-80l30-130z' fill='%2334d399'/></svg>",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["utilities", "travel", "productivity"],
+  "lang": "sv-SE"
+}

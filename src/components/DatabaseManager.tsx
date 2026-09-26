@@ -1,5 +1,5 @@
 import React, { useRef, useState } from 'react';
-import { Database, Download, Upload, RotateCcw, CheckCircle2, AlertCircle, HardDrive } from 'lucide-react';
+import { Download, Upload, RotateCcw, CheckCircle2, AlertCircle, HardDrive, Cloud, RefreshCw } from 'lucide-react';
 import { VehicleProfile, ChargingScenario } from '../types';
 import {
   exportDatabaseBackup,
@@ -16,6 +16,11 @@ interface DatabaseManagerProps {
   destAddress: string;
   savedTripsCount: number;
   onDataReloaded: () => void;
+  isSyncing?: boolean;
+  lastSyncedAt?: Date | null;
+  syncError?: string | null;
+  onManualSync?: () => void;
+  cloudDocId?: string;
 }
 
 export const DatabaseManager: React.FC<DatabaseManagerProps> = ({
@@ -27,6 +32,11 @@ export const DatabaseManager: React.FC<DatabaseManagerProps> = ({
   destAddress,
   savedTripsCount,
   onDataReloaded,
+  isSyncing,
+  lastSyncedAt,
+  syncError,
+  onManualSync,
+  cloudDocId,
 }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [statusMessage, setStatusMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
@@ -97,22 +107,48 @@ export const DatabaseManager: React.FC<DatabaseManagerProps> = ({
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
         <div className="flex items-center gap-2.5">
           <div className="p-2.5 rounded-xl bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">
-            <Database className="w-5 h-5" />
+            <Cloud className="w-5 h-5" />
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <h2 className="text-lg font-bold text-white tracking-tight">Klientdatabas (IndexedDB)</h2>
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 text-[10px] font-semibold">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-                Aktiv i webbläsaren
-              </span>
+              <h2 className="text-lg font-bold text-white tracking-tight">Delad Molndatabas</h2>
+              {isSyncing ? (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-500/20 border border-amber-500/40 text-amber-300 text-[10px] font-semibold">
+                  <RefreshCw className="w-2.5 h-2.5 animate-spin" />
+                  Synkar...
+                </span>
+              ) : syncError ? (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-red-500/20 border border-red-500/40 text-red-300 text-[10px] font-semibold" title={syncError}>
+                  <AlertCircle className="w-2.5 h-2.5" />
+                  Offline-läge (Lokal cache)
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 text-[10px] font-semibold">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                  Realtidssynkad för alla
+                </span>
+              )}
             </div>
-            <p className="text-xs text-slate-400">All data lagras lokalt och säkert i din webbläsares IndexedDB</p>
+            <p className="text-xs text-slate-400">
+              Ändringar du eller andra användare gör slår igenom automatiskt för alla enheter.
+            </p>
           </div>
         </div>
 
         {/* Database Quick Actions */}
         <div className="flex flex-wrap items-center gap-2">
+          {onManualSync && (
+            <button
+              onClick={onManualSync}
+              disabled={isSyncing}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-cyan-300 bg-cyan-950/60 hover:bg-cyan-900/60 rounded-lg border border-cyan-800/80 transition active:scale-95 disabled:opacity-50 cursor-pointer"
+              title="Hämta senaste ändringarna från molnet manuellt"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin text-amber-400' : 'text-cyan-400'}`} />
+              <span>{isSyncing ? 'Synkar...' : 'Synka nu'}</span>
+            </button>
+          )}
+
           <button
             onClick={handleExport}
             className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-200 bg-slate-800 hover:bg-slate-700 rounded-lg border border-slate-700 transition active:scale-95"
@@ -173,23 +209,35 @@ export const DatabaseManager: React.FC<DatabaseManagerProps> = ({
           <HardDrive className="w-4 h-4 text-cyan-400" />
           <div>
             <div className="text-[10px] text-slate-400 uppercase">Fordon</div>
-            <div className="font-bold text-white">{vehicle.name || 'Min Elbil'}</div>
+            <div className="font-bold text-white truncate max-w-[130px]">{vehicle.name || 'Min Elbil'}</div>
           </div>
         </div>
 
         <div>
-          <div className="text-[10px] text-slate-400 uppercase">Scenarier</div>
-          <div className="font-bold text-white font-mono-numbers">{scenarios.length} st aktiva</div>
+          <div className="text-[10px] text-slate-400 uppercase">Scenarier / Resor</div>
+          <div className="font-bold text-white font-mono-numbers">
+            {scenarios.length} st <span className="text-[11px] text-emerald-400 font-normal">({savedTripsCount} loggade)</span>
+          </div>
         </div>
 
         <div>
-          <div className="text-[10px] text-slate-400 uppercase">Sparade Resor</div>
-          <div className="font-bold text-emerald-400 font-mono-numbers">{savedTripsCount} st loggade</div>
+          <div className="text-[10px] text-slate-400 uppercase">Molnstatus</div>
+          <div className="font-bold text-emerald-400 font-mono-numbers flex items-center gap-1">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+            Aktiv & Delad
+          </div>
         </div>
 
         <div>
-          <div className="text-[10px] text-slate-400 uppercase">Databasnamn</div>
-          <div className="font-bold text-slate-300 font-mono">SjooElbilDB v1</div>
+          <div className="text-[10px] text-slate-400 uppercase">Senast synkad</div>
+          <div
+            className="font-bold text-slate-300 font-mono text-[11px] truncate cursor-help"
+            title={cloudDocId ? `Molndokument-ID: ${cloudDocId}` : undefined}
+          >
+            {lastSyncedAt
+              ? lastSyncedAt.toLocaleTimeString('sv-SE', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+              : 'Vid start'}
+          </div>
         </div>
       </div>
     </div>

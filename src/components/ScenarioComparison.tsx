@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
-import { Layers, Plus, Trash2, Edit2, Check, X, Award, Sparkles, RotateCcw } from 'lucide-react';
+import { Layers, Plus, Trash2, Edit2, Check, X, Award, Sparkles, RotateCcw, LayoutGrid, BarChart3, Table } from 'lucide-react';
 import { ChargingScenario, ScenarioResult } from '../types';
 import { DEFAULT_SCENARIOS } from '../utils/calculations';
+import { VisualChart } from './VisualChart';
+import { SummaryTable } from './SummaryTable';
 
 interface ScenarioComparisonProps {
   scenarios: ChargingScenario[];
@@ -11,6 +13,11 @@ interface ScenarioComparisonProps {
   tripDistanceMil: number;
   monthlyDistanceMil: number;
   onUpdateScenarios: (updated: ChargingScenario[]) => void;
+  petrolPricePerLiter?: number;
+  petrolSource?: string;
+  petrolUpdatedAt?: string;
+  onPetrolPriceChange?: (newPrice: number) => void;
+  onRefreshPetrolPrice?: () => Promise<void>;
 }
 
 export const ScenarioComparison: React.FC<ScenarioComparisonProps> = ({
@@ -21,7 +28,13 @@ export const ScenarioComparison: React.FC<ScenarioComparisonProps> = ({
   tripDistanceMil,
   monthlyDistanceMil,
   onUpdateScenarios,
+  petrolPricePerLiter = 17.69,
+  petrolSource = 'Circle K / ST1',
+  petrolUpdatedAt = '',
+  onPetrolPriceChange = () => {},
+  onRefreshPetrolPrice = async () => {},
 }) => {
+  const [viewMode, setViewMode] = useState<'cards' | 'chart' | 'table'>('cards');
   const [editingId, setEditingId] = useState<string | null>(null);
   const [isAddingNew, setIsAddingNew] = useState(false);
 
@@ -109,49 +122,93 @@ export const ScenarioComparison: React.FC<ScenarioComparisonProps> = ({
 
   return (
     <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-5 sm:p-6 shadow-xl backdrop-blur-sm transition-all hover:border-slate-700/80">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5">
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-5 pb-4 border-b border-slate-800">
         <div className="flex items-center gap-2.5">
           <div className="p-2.5 rounded-xl bg-amber-500/10 text-amber-400 border border-amber-500/20">
             <Layers className="w-5 h-5" />
           </div>
           <div>
             <h2 className="text-lg font-bold text-white tracking-tight">Pris- och Kostnadsjämförelse</h2>
-            <p className="text-xs text-slate-400">Jämför olika laddscenarier och elavtal sida vid sida</p>
+            <p className="text-xs text-slate-400">Jämför olika laddscenarier, diagram mot bensin och komplett tabell</p>
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
-          <button
-            onClick={handleResetToDefault}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-slate-400 hover:text-slate-200 bg-slate-800/60 hover:bg-slate-800 rounded-lg border border-slate-700 transition"
-            title="Återställ standardscenarier"
-          >
-            <RotateCcw className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">Återställ</span>
-          </button>
-
-          {!isAddingNew && (
+        {/* Vy-växlare & Åtgärder */}
+        <div className="flex flex-wrap items-center gap-2">
+          {/* View Mode Switcher */}
+          <div className="flex items-center bg-slate-950 p-1 rounded-xl border border-slate-800">
             <button
-              onClick={() => {
-                setIsAddingNew(true);
-                setEditingId(null);
-                setFormName('');
-                setFormDesc('');
-                setFormPricePerKwh('2.00');
-                setFormMonthlyFee('0');
-                setFormSessionFee('0');
-              }}
-              className="flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-bold text-slate-950 bg-gradient-to-r from-amber-400 to-emerald-400 hover:from-amber-300 hover:to-emerald-300 rounded-lg shadow transition active:scale-95"
+              onClick={() => setViewMode('cards')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition ${
+                viewMode === 'cards'
+                  ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40 shadow-sm'
+                  : 'text-slate-400 hover:text-white'
+              }`}
             >
-              <Plus className="w-4 h-4" />
-              <span>Nytt scenario</span>
+              <LayoutGrid className="w-3.5 h-3.5" />
+              <span>Kort</span>
             </button>
+            <button
+              onClick={() => setViewMode('chart')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition ${
+                viewMode === 'chart'
+                  ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 shadow-sm'
+                  : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              <BarChart3 className="w-3.5 h-3.5" />
+              <span>Diagram & Bensin</span>
+            </button>
+            <button
+              onClick={() => setViewMode('table')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition ${
+                viewMode === 'table'
+                  ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 shadow-sm'
+                  : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              <Table className="w-3.5 h-3.5" />
+              <span>Tabell</span>
+            </button>
+          </div>
+
+          {viewMode === 'cards' && (
+            <div className="flex items-center gap-2 ml-auto sm:ml-0">
+              <button
+                onClick={handleResetToDefault}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-slate-400 hover:text-slate-200 bg-slate-800/60 hover:bg-slate-800 rounded-lg border border-slate-700 transition"
+                title="Återställ standardscenarier"
+              >
+                <RotateCcw className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Återställ</span>
+              </button>
+
+              {!isAddingNew && (
+                <button
+                  onClick={() => {
+                    setIsAddingNew(true);
+                    setEditingId(null);
+                    setFormName('');
+                    setFormDesc('');
+                    setFormPricePerKwh('2.00');
+                    setFormMonthlyFee('0');
+                    setFormSessionFee('0');
+                  }}
+                  className="flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-bold text-slate-950 bg-gradient-to-r from-amber-400 to-emerald-400 hover:from-amber-300 hover:to-emerald-300 rounded-lg shadow transition active:scale-95"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>Nytt scenario</span>
+                </button>
+              )}
+            </div>
           )}
         </div>
       </div>
 
-      {/* Modal / Inline Add Form */}
-      {isAddingNew && (
+      {viewMode === 'cards' && (
+        <>
+          {/* Modal / Inline Add Form */}
+          {isAddingNew && (
         <form onSubmit={handleAddNew} className="mb-6 p-4 rounded-xl bg-slate-950 border border-amber-500/40 space-y-3">
           <div className="flex items-center justify-between border-b border-slate-800 pb-2">
             <span className="text-xs font-bold text-amber-400 flex items-center gap-1.5">
@@ -426,6 +483,33 @@ export const ScenarioComparison: React.FC<ScenarioComparisonProps> = ({
           );
         })}
       </div>
-    </div>
+    </>
+  )}
+
+  {viewMode === 'chart' && (
+    <VisualChart
+      results={results}
+      tripDistanceMil={tripDistanceMil}
+      monthlyDistanceMil={monthlyDistanceMil}
+      petrolPricePerLiter={petrolPricePerLiter}
+      petrolSource={petrolSource}
+      petrolUpdatedAt={petrolUpdatedAt}
+      onPetrolPriceChange={onPetrolPriceChange}
+      onRefreshPetrolPrice={onRefreshPetrolPrice}
+      embedded={true}
+    />
+  )}
+
+  {viewMode === 'table' && (
+    <SummaryTable
+      results={results}
+      cheapestTripId={cheapestTripId}
+      cheapestMonthlyId={cheapestMonthlyId}
+      tripDistanceMil={tripDistanceMil}
+      monthlyDistanceMil={monthlyDistanceMil}
+      embedded={true}
+    />
+  )}
+</div>
   );
 };

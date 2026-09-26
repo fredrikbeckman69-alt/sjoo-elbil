@@ -1,5 +1,5 @@
 import React from 'react';
-import { Zap, ShieldCheck, BatteryCharging, Gauge } from 'lucide-react';
+import { Zap, ShieldCheck, BatteryCharging, Gauge, Cloud, RefreshCw } from 'lucide-react';
 import { VehicleProfile } from '../types';
 import { kwhPer100KmToKwhPerMil, calculateRange } from '../utils/calculations';
 import carImage from '../assets/bil.jpg';
@@ -8,9 +8,19 @@ interface HeaderHeroProps {
   vehicle: VehicleProfile;
   tripDistanceMil: number;
   isRoundTrip?: boolean;
+  isSyncing?: boolean;
+  lastSyncedAt?: Date | null;
+  onManualSync?: () => void;
 }
 
-export const HeaderHero: React.FC<HeaderHeroProps> = ({ vehicle, tripDistanceMil, isRoundTrip }) => {
+export const HeaderHero: React.FC<HeaderHeroProps> = ({
+  vehicle,
+  tripDistanceMil,
+  isRoundTrip,
+  isSyncing,
+  lastSyncedAt,
+  onManualSync,
+}) => {
   const kwhPerMil = kwhPer100KmToKwhPerMil(vehicle.consumptionKwhPer100Km);
   const { rangeKm, rangeMil } = calculateRange(vehicle.batteryCapacityKwh, vehicle.consumptionKwhPer100Km);
 
@@ -27,10 +37,33 @@ export const HeaderHero: React.FC<HeaderHeroProps> = ({ vehicle, tripDistanceMil
         <div className="absolute inset-0 bg-gradient-to-r from-slate-950/80 via-transparent to-slate-950/80" />
 
         {/* Top Badges */}
-        <div className="absolute top-4 left-4 right-4 flex items-center justify-between gap-2">
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 text-xs font-semibold backdrop-blur-md">
-            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-            Elbilskalkylator Pro
+        <div className="absolute top-4 left-4 right-4 flex flex-wrap items-center justify-between gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 text-xs font-semibold backdrop-blur-md">
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+              Elbilskalkylator Pro
+            </div>
+            {onManualSync && (
+              <button
+                type="button"
+                onClick={onManualSync}
+                className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-900/85 hover:bg-slate-800 border border-cyan-500/40 text-cyan-300 text-xs font-medium backdrop-blur-md transition active:scale-95 shadow-md cursor-pointer"
+                title="Klicka för att tvinga molnsynkronisering och hämta de absolut senaste inmatade uppgifterna"
+              >
+                <Cloud className={`w-3.5 h-3.5 ${isSyncing ? 'text-amber-400 animate-bounce' : 'text-cyan-400'}`} />
+                <span className="hidden xs:inline">Molndatabas:</span>
+                {isSyncing ? (
+                  <span className="text-[10px] text-amber-300 font-mono flex items-center gap-1">
+                    <RefreshCw className="w-2.5 h-2.5 animate-spin" /> Synkar...
+                  </span>
+                ) : (
+                  <span className="text-[10px] text-emerald-300 font-mono flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span> Delad för alla
+                    {lastSyncedAt && ` (${lastSyncedAt.toLocaleTimeString('sv-SE', { hour: '2-digit', minute: '2-digit' })})`}
+                  </span>
+                )}
+              </button>
+            )}
           </div>
           <div className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-slate-800/80 border border-slate-700 text-slate-300 text-xs font-medium backdrop-blur-md">
             <ShieldCheck className="w-3.5 h-3.5 text-cyan-400" />

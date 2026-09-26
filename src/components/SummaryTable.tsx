@@ -8,6 +8,7 @@ interface SummaryTableProps {
   cheapestMonthlyId: string;
   tripDistanceMil: number;
   monthlyDistanceMil: number;
+  embedded?: boolean;
 }
 
 export const SummaryTable: React.FC<SummaryTableProps> = ({
@@ -16,22 +17,12 @@ export const SummaryTable: React.FC<SummaryTableProps> = ({
   cheapestMonthlyId,
   tripDistanceMil,
   monthlyDistanceMil,
+  embedded = false,
 }) => {
-  return (
-    <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-5 sm:p-6 shadow-xl backdrop-blur-sm transition-all hover:border-slate-700/80">
-      <div className="flex items-center gap-2.5 mb-4">
-        <div className="p-2.5 rounded-xl bg-blue-500/10 text-blue-400 border border-blue-500/20">
-          <Table className="w-5 h-5" />
-        </div>
-        <div>
-          <h2 className="text-lg font-bold text-white tracking-tight">Jämförelsetabell</h2>
-          <p className="text-xs text-slate-400">Total överblick över alla beräknade nyckeltal</p>
-        </div>
-      </div>
-
-      <div className="overflow-x-auto -mx-5 sm:mx-0">
-        <div className="inline-block min-w-full align-middle px-5 sm:px-0">
-          <table className="min-w-full text-left text-xs divide-y divide-slate-800">
+  const tableContent = (
+    <div className="overflow-x-auto -mx-5 sm:mx-0">
+      <div className="inline-block min-w-full align-middle px-5 sm:px-0">
+        <table className="min-w-full text-left text-xs divide-y divide-slate-800">
             <thead>
               <tr className="text-slate-400 font-semibold border-b border-slate-800">
                 <th className="py-3 pr-4">Scenario</th>
@@ -97,6 +88,24 @@ export const SummaryTable: React.FC<SummaryTableProps> = ({
           </table>
         </div>
       </div>
+  );
+
+  if (embedded) {
+    return tableContent;
+  }
+
+  return (
+    <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-5 sm:p-6 shadow-xl backdrop-blur-sm transition-all hover:border-slate-700/80">
+      <div className="flex items-center gap-2.5 mb-4">
+        <div className="p-2.5 rounded-xl bg-blue-500/10 text-blue-400 border border-blue-500/20">
+          <Table className="w-5 h-5" />
+        </div>
+        <div>
+          <h2 className="text-lg font-bold text-white tracking-tight">Jämförelsetabell</h2>
+          <p className="text-xs text-slate-400">Total överblick över alla beräknade nyckeltal</p>
+        </div>
+      </div>
+      {tableContent}
     </div>
   );
 };

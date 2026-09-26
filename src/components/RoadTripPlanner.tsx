@@ -1,13 +1,15 @@
 import React, { useState } from 'react';
 import { Compass, BatteryCharging, Clock, ShieldCheck, Sparkles, Coffee, CheckCircle2 } from 'lucide-react';
 import { VehicleProfile, TripConditions } from '../types';
-import { calculateRoadTripAnalysis } from '../utils/calculations';
+import { calculateRoadTripAnalysis, SWEDISH_ROUTE_PRESETS } from '../utils/calculations';
 
 interface RoadTripPlannerProps {
   distanceMil: number;
   vehicle: VehicleProfile;
   conditions: TripConditions;
   petrolPricePerLiter?: number;
+  homePricePerKwh?: number;
+  fastPricePerKwh?: number;
   onSelectRoutePreset: (start: string, dest: string, distanceMil: number) => void;
 }
 
@@ -16,18 +18,14 @@ export const RoadTripPlanner: React.FC<RoadTripPlannerProps> = ({
   vehicle,
   conditions,
   petrolPricePerLiter = 17.69,
+  homePricePerKwh = 1.15,
+  fastPricePerKwh = 4.95,
   onSelectRoutePreset,
 }) => {
   const [startBatteryPercent, setStartBatteryPercent] = useState<number>(100);
   const [arrivalBufferPercent, setArrivalBufferPercent] = useState<number>(15);
 
-  const roadTripPresets = [
-    { name: 'Fjällresa (Sälen)', start: 'Stockholm', dest: 'Sälen', distanceMil: 42, icon: '⛷️' },
-    { name: 'Åre Express', start: 'Stockholm', dest: 'Åre', distanceMil: 62, icon: '🏔️' },
-    { name: 'Sommarresan', start: 'Göteborg', dest: 'Österlen', distanceMil: 38, icon: '🏖️' },
-    { name: 'Huvudstäderna', start: 'Stockholm', dest: 'Göteborg', distanceMil: 47, icon: '🌆' },
-    { name: 'Syd till Huvudstad', start: 'Malmö', dest: 'Stockholm', distanceMil: 61, icon: '🇸🇪' },
-  ];
+  const roadTripPresets = SWEDISH_ROUTE_PRESETS;
 
   const analysis = calculateRoadTripAnalysis(
     distanceMil,
@@ -36,8 +34,8 @@ export const RoadTripPlanner: React.FC<RoadTripPlannerProps> = ({
     conditions,
     startBatteryPercent,
     arrivalBufferPercent,
-    1.15,
-    4.95,
+    homePricePerKwh,
+    fastPricePerKwh,
     petrolPricePerLiter
   );
 
@@ -76,7 +74,7 @@ export const RoadTripPlanner: React.FC<RoadTripPlannerProps> = ({
         <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block mb-2">
           Populära svenska långresor (klicka för att testa):
         </span>
-        <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
           {roadTripPresets.map((preset) => {
             const isSelected = Math.abs(distanceMil - preset.distanceMil) < 1;
             return (
@@ -163,7 +161,7 @@ export const RoadTripPlanner: React.FC<RoadTripPlannerProps> = ({
               )}
             </div>
             <div className="text-2xl sm:text-3xl font-black text-white font-mono-numbers">
-              {analysis.stopsCount === 0 ? '0 laddstopp' : `${analysis.stopsCount} ${analysis.stopsCount === 1 ? 'laddstopp' : 'laddstopp'}`}
+              {analysis.stopsCount === 0 ? '0 laddstopp' : `${analysis.stopsCount} laddstopp`}
             </div>
           </div>
           <p className="text-xs text-slate-400 mt-3">
@@ -224,7 +222,7 @@ export const RoadTripPlanner: React.FC<RoadTripPlannerProps> = ({
             <div>
               <strong className="text-white">Startel hemifrån ({analysis.homeKwh} kWh):</strong>
               <div className="text-slate-400">
-                Laddas till din låga hemmataxa (~1,15 kr/kWh) = ca <strong>{(analysis.homeKwh * 1.15).toFixed(0)} kr</strong>.
+                Laddas till din hemmataxa (~{homePricePerKwh.toFixed(2).replace('.', ',')} kr/kWh) = ca <strong>{(analysis.homeKwh * homePricePerKwh).toFixed(0)} kr</strong>.
               </div>
             </div>
           </div>
@@ -234,7 +232,7 @@ export const RoadTripPlanner: React.FC<RoadTripPlannerProps> = ({
             <div>
               <strong className="text-white">Snabbladdning på vägen ({analysis.highwayKwh} kWh):</strong>
               <div className="text-slate-400">
-                Endast överskottet laddas på snabbladdare (~4,95 kr/kWh) = ca <strong>{(analysis.highwayKwh * 4.95).toFixed(0)} kr</strong>.
+                Endast överskottet laddas på snabbladdare (~{fastPricePerKwh.toFixed(2).replace('.', ',')} kr/kWh) = ca <strong>{(analysis.highwayKwh * fastPricePerKwh).toFixed(0)} kr</strong>.
               </div>
             </div>
           </div>

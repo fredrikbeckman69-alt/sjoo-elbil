@@ -22,7 +22,9 @@ export const DEFAULT_FUEL_PRICE: FuelPriceData = {
 export async function fetchCurrentPetrolPrice(): Promise<FuelPriceData> {
   try {
     // 1. Försök hämta från lokal statisk datakälla
-    const response = await fetch('./data/fuel_prices.json', {
+    const baseUrl = import.meta.env.BASE_URL || './';
+    const jsonUrl = `${baseUrl.replace(/\/$/, '')}/data/fuel_prices.json`;
+    const response = await fetch(jsonUrl, {
       cache: 'no-cache',
     });
 

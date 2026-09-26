@@ -12,6 +12,7 @@ interface VisualChartProps {
   petrolUpdatedAt?: string;
   onPetrolPriceChange?: (newPrice: number) => void;
   onRefreshPetrolPrice?: () => Promise<void>;
+  embedded?: boolean;
 }
 
 export const VisualChart: React.FC<VisualChartProps> = ({
@@ -23,6 +24,7 @@ export const VisualChart: React.FC<VisualChartProps> = ({
   petrolUpdatedAt,
   onPetrolPriceChange,
   onRefreshPetrolPrice,
+  embedded = false,
 }) => {
   const [activeTab, setActiveTab] = useState<'trip' | 'monthly' | 'permil'>('trip');
   const [isEditingPetrol, setIsEditingPetrol] = useState(false);
@@ -58,53 +60,49 @@ export const VisualChart: React.FC<VisualChartProps> = ({
     }
   };
 
-  return (
-    <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-5 sm:p-6 shadow-xl backdrop-blur-sm transition-all hover:border-slate-700/80">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5">
-        <div className="flex items-center gap-2.5">
-          <div className="p-2.5 rounded-xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-            <BarChart3 className="w-5 h-5" />
-          </div>
-          <div>
-            <h2 className="text-lg font-bold text-white tracking-tight">Visuell Jämförelse & Besparing</h2>
-            <p className="text-xs text-slate-400">Se skillnaden i kostnad och besparing mot fossildrift</p>
-          </div>
-        </div>
+  const tabsHeader = (
+    <div className="flex items-center bg-slate-950 p-1 rounded-xl border border-slate-800 text-xs shrink-0">
+      <button
+        onClick={() => setActiveTab('trip')}
+        className={`px-3 py-1.5 rounded-lg font-semibold transition ${
+          activeTab === 'trip'
+            ? 'bg-emerald-500 text-slate-950 shadow'
+            : 'text-slate-400 hover:text-white'
+        }`}
+      >
+        Resa ({tripDistanceMil} mil)
+      </button>
+      <button
+        onClick={() => setActiveTab('monthly')}
+        className={`px-3 py-1.5 rounded-lg font-semibold transition ${
+          activeTab === 'monthly'
+            ? 'bg-emerald-500 text-slate-950 shadow'
+            : 'text-slate-400 hover:text-white'
+        }`}
+      >
+        Månad ({monthlyDistanceMil} mil)
+      </button>
+      <button
+        onClick={() => setActiveTab('permil')}
+        className={`px-3 py-1.5 rounded-lg font-semibold transition ${
+          activeTab === 'permil'
+            ? 'bg-emerald-500 text-slate-950 shadow'
+            : 'text-slate-400 hover:text-white'
+        }`}
+      >
+        Per mil (kr)
+      </button>
+    </div>
+  );
 
-        {/* Tab switcher */}
-        <div className="flex items-center bg-slate-950 p-1 rounded-xl border border-slate-800 text-xs">
-          <button
-            onClick={() => setActiveTab('trip')}
-            className={`px-3 py-1.5 rounded-lg font-semibold transition ${
-              activeTab === 'trip'
-                ? 'bg-emerald-500 text-slate-950 shadow'
-                : 'text-slate-400 hover:text-white'
-            }`}
-          >
-            Resa ({tripDistanceMil} mil)
-          </button>
-          <button
-            onClick={() => setActiveTab('monthly')}
-            className={`px-3 py-1.5 rounded-lg font-semibold transition ${
-              activeTab === 'monthly'
-                ? 'bg-emerald-500 text-slate-950 shadow'
-                : 'text-slate-400 hover:text-white'
-            }`}
-          >
-            Månad ({monthlyDistanceMil} mil)
-          </button>
-          <button
-            onClick={() => setActiveTab('permil')}
-            className={`px-3 py-1.5 rounded-lg font-semibold transition ${
-              activeTab === 'permil'
-                ? 'bg-emerald-500 text-slate-950 shadow'
-                : 'text-slate-400 hover:text-white'
-            }`}
-          >
-            Per mil (kr)
-          </button>
+  const mainVisuals = (
+    <>
+      {embedded && (
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4 pb-3 border-b border-slate-800/80">
+          <span className="text-xs text-slate-400">Jämför elbilsalternativen direkt mot bensinbil:</span>
+          {tabsHeader}
         </div>
-      </div>
+      )}
 
       {/* Bars visualization */}
       <div className="space-y-3.5 mb-6">
@@ -274,13 +272,35 @@ export const VisualChart: React.FC<VisualChartProps> = ({
           </div>
 
           <div className="text-right shrink-0">
-            <div className="text-[10px] text-slate-400 uppercase font-medium">Årlig besparing ca</div>
-            <div className="text-lg font-black text-emerald-400 font-mono-numbers">
-              {((petrolCostMonthly - Math.min(...results.map((r) => r.monthlyCost))) * 12).toLocaleString('sv-SE')} kr/år
+            <div className="text-[10px] text-slate-400 uppercase font-medium">Uppskattad årsbesparing</div>
+            <div className="text-sm font-bold text-emerald-400 font-mono-numbers">
+              +{Math.max(0, (petrolCostMonthly - Math.min(...results.map((r) => r.monthlyCost))) * 12).toLocaleString('sv-SE')} kr/år
             </div>
           </div>
         </div>
       )}
+    </>
+  );
+
+  if (embedded) {
+    return mainVisuals;
+  }
+
+  return (
+    <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-5 sm:p-6 shadow-xl backdrop-blur-sm transition-all hover:border-slate-700/80">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5">
+        <div className="flex items-center gap-2.5">
+          <div className="p-2.5 rounded-xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+            <BarChart3 className="w-5 h-5" />
+          </div>
+          <div>
+            <h2 className="text-lg font-bold text-white tracking-tight">Visuell Jämförelse & Besparing</h2>
+            <p className="text-xs text-slate-400">Se skillnaden i kostnad och besparing mot fossildrift</p>
+          </div>
+        </div>
+        {tabsHeader}
+      </div>
+      {mainVisuals}
     </div>
   );
 };

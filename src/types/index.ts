@@ -102,6 +102,8 @@ export interface DatabaseBackup {
   scenarios: ChargingScenario[];
   trips: SavedTrip[];
   checklist?: ChecklistItem[];
+  conditions?: TripConditions;
+  isRoundTrip?: boolean;
 }
 
 export interface VehicleHistoryEvent {
@@ -177,7 +179,7 @@ export interface VehicleRegistryData {
   fetchedAt?: string;
 }
 
-export type AppTab = 'calculator' | 'charging-map';
+export type AppTab = 'calculator' | 'map' | 'operators' | 'registry';
 
 export interface ChargingStation {
   id: number;

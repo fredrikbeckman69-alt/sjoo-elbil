@@ -39,17 +39,26 @@ import {
   deleteTrip,
   clearAllTrips,
 } from './db/indexedDb';
+import { MonthlySettings } from './components/MonthlySettings';
 import { VehicleRegistryTab } from './components/VehicleRegistryTab';
 import { ChargingOperatorsTab } from './components/ChargingOperatorsTab';
-import { ChargingMap } from './components/ChargingMap';
 import { NavigationTabs, AppTab } from './components/NavigationTabs';
 import { CalculatedPlanCost } from './types/chargingOperators';
 import { Zap, ExternalLink, Loader2 } from 'lucide-react';
+import {
+  startAutoSync,
+  pushCloudState,
+  fetchLatestCloudState,
+  subscribeToSyncStatus,
+  SyncStatus,
+} from './services/cloudSyncService';
+
+const ChargingMap = React.lazy(() => import('./components/ChargingMap'));
 
 export const App: React.FC = () => {
   const [isDbLoaded, setIsDbLoaded] = useState(false);
 
-  // States som synkas med IndexedDB
+  // States som synkas med IndexedDB och molnet
   const [vehicle, setVehicleState] = useState<VehicleProfile>(DEFAULT_VEHICLE);
   const [scenarios, setScenariosState] = useState<ChargingScenario[]>(DEFAULT_SCENARIOS);
   const [tripDistanceMil, setTripDistanceMilState] = useState<number>(42); // Default Sälen långresa
@@ -62,6 +71,12 @@ export const App: React.FC = () => {
   const [fuelPrice, setFuelPriceState] = useState<FuelPriceData>(DEFAULT_FUEL_PRICE);
   const [activeTab, setActiveTabState] = useState<AppTab>('calculator');
   const [isRoundTrip, setIsRoundTripState] = useState<boolean>(false);
+  const [syncStatus, setSyncStatus] = useState<SyncStatus>({
+    isSyncing: false,
+    lastSyncedAt: null,
+    error: null,
+    cloudDocId: '',
+  });
 
   // Ladda data från IndexedDB vid start
   const loadDataFromDb = useCallback(async () => {
@@ -110,33 +125,90 @@ export const App: React.FC = () => {
     loadDataFromDb();
   }, [loadDataFromDb]);
 
-  // Uppdatera och spara fordon i IndexedDB
+  // Lyssna på molnsynkronisering och uppdatera lokalt tillstånd när någon användare gör ändringar
+  useEffect(() => {
+    const unsubStatus = subscribeToSyncStatus(setSyncStatus);
+
+    const unsubAutoSync = startAutoSync((remote) => {
+      if (remote.scenarios && remote.scenarios.length > 0) {
+        setScenariosState(remote.scenarios);
+        saveAllScenarios(remote.scenarios);
+      }
+      if (remote.vehicle) {
+        setVehicleState(remote.vehicle);
+        saveActiveVehicle(remote.vehicle);
+      }
+      if (typeof remote.tripDistanceMil === 'number') {
+        setTripDistanceMilState(remote.tripDistanceMil);
+        setSetting('tripDistanceMil', remote.tripDistanceMil);
+      }
+      if (typeof remote.monthlyDistanceMil === 'number') {
+        setMonthlyDistanceMilState(remote.monthlyDistanceMil);
+        setSetting('monthlyDistanceMil', remote.monthlyDistanceMil);
+      }
+      if (remote.startAddress) {
+        setStartAddressState(remote.startAddress);
+        setSetting('startAddress', remote.startAddress);
+      }
+      if (remote.destAddress) {
+        setDestAddressState(remote.destAddress);
+        setSetting('destAddress', remote.destAddress);
+      }
+      if (typeof remote.isRoundTrip === 'boolean') {
+        setIsRoundTripState(remote.isRoundTrip);
+        setSetting('isRoundTrip', remote.isRoundTrip);
+      }
+    });
+
+    return () => {
+      unsubStatus();
+      unsubAutoSync();
+    };
+  }, []);
+
+  const handleManualSync = useCallback(() => {
+    fetchLatestCloudState();
+  }, []);
+
+  // Uppdatera och spara fordon i IndexedDB och molnet
   const handleVehicleChange = (updated: VehicleProfile) => {
     setVehicleState(updated);
     saveActiveVehicle(updated);
+    pushCloudState({ vehicle: updated });
   };
 
-  // Uppdatera och spara scenarier i IndexedDB
+  // Uppdatera och spara scenarier i IndexedDB och molnet
   const handleScenariosChange = (updated: ChargingScenario[]) => {
     setScenariosState(updated);
     saveAllScenarios(updated);
+    pushCloudState({ scenarios: updated });
   };
 
-  // Uppdatera resdistans och spara i IndexedDB
+  // Uppdatera resdistans och spara i IndexedDB och molnet
   const handleTripDistanceChange = (mil: number) => {
     setTripDistanceMilState(mil);
     setSetting('tripDistanceMil', mil);
+    pushCloudState({ tripDistanceMil: mil });
   };
 
-  // Uppdatera adresser och spara i IndexedDB
+  // Uppdatera månadskörsträcka och spara i IndexedDB och molnet
+  const handleMonthlyDistanceChange = (mil: number) => {
+    setMonthlyDistanceMilState(mil);
+    setSetting('monthlyDistanceMil', mil);
+    pushCloudState({ monthlyDistanceMil: mil });
+  };
+
+  // Uppdatera adresser och spara i IndexedDB och molnet
   const handleStartAddressChange = (addr: string) => {
     setStartAddressState(addr);
     setSetting('startAddress', addr);
+    pushCloudState({ startAddress: addr });
   };
 
   const handleDestAddressChange = (addr: string) => {
     setDestAddressState(addr);
     setSetting('destAddress', addr);
+    pushCloudState({ destAddress: addr });
   };
 
   // Uppdatera körförhållanden (väder/takbox/motorväg)
@@ -158,6 +230,7 @@ export const App: React.FC = () => {
   const handleRoundTripChange = (roundTrip: boolean) => {
     setIsRoundTripState(roundTrip);
     setSetting('isRoundTrip', roundTrip);
+    pushCloudState({ isRoundTrip: roundTrip });
   };
 
   // Snabbval av svensk långresa
@@ -169,6 +242,7 @@ export const App: React.FC = () => {
     setSetting('startAddress', start);
     setSetting('destAddress', dest);
     setSetting('tripDistanceMil', finalDist);
+    pushCloudState({ startAddress: start, destAddress: dest, tripDistanceMil: finalDist });
   };
 
   // Hantera sparade resor i IndexedDB
@@ -272,6 +346,12 @@ export const App: React.FC = () => {
     fuelPrice.pricePerLiter
   );
 
+  // Hitta hemmataxa och snabbladdartaxa från aktiva scenarier för att skicka till RoadTripPlanner
+  const homeScenario = scenarios.find((s) => s.id.includes('home') || s.name.toLowerCase().includes('hemma')) || scenarios[0];
+  const fastScenario = scenarios.find((s) => s.id.includes('fast') || s.id.includes('dc') || s.name.toLowerCase().includes('snabb')) || scenarios[2];
+  const homePrice = homeScenario ? homeScenario.pricePerKwh : 1.15;
+  const fastPrice = fastScenario ? fastScenario.pricePerKwh : 4.95;
+
   if (!isDbLoaded) {
     return (
       <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center text-slate-300">
@@ -298,8 +378,17 @@ export const App: React.FC = () => {
         />
 
         {activeTab === 'map' && (
-          /* Separat flik: Sveriges alla laddstationer på interaktiv karta */
-          <ChargingMap onSelectStationAsDestination={handleSelectStationAsDestination} />
+          /* Separat flik: Sveriges alla laddstationer på interaktiv karta (Lazy loaded) */
+          <React.Suspense
+            fallback={
+              <div className="bg-slate-900/90 border border-slate-800 rounded-3xl p-12 text-center text-slate-300 flex flex-col items-center justify-center gap-3">
+                <Loader2 className="w-8 h-8 text-emerald-400 animate-spin" />
+                <p className="text-sm font-semibold">Laddar Sveriges laddstationskarta...</p>
+              </div>
+            }
+          >
+            <ChargingMap onSelectStationAsDestination={handleSelectStationAsDestination} />
+          </React.Suspense>
         )}
 
         {activeTab === 'registry' && (
@@ -319,17 +408,25 @@ export const App: React.FC = () => {
           /* Flik: Elbilskalkylator Pro */
           <>
             {/* 1. Header & Hero with car image */}
-            <HeaderHero vehicle={vehicle} tripDistanceMil={tripDistanceMil} isRoundTrip={isRoundTrip} />
+            <HeaderHero
+              vehicle={vehicle}
+              tripDistanceMil={tripDistanceMil}
+              isRoundTrip={isRoundTrip}
+              isSyncing={syncStatus.isSyncing}
+              lastSyncedAt={syncStatus.lastSyncedAt}
+              onManualSync={handleManualSync}
+            />
 
-
-        {/* 2. Occasional Driver Road Trip Assistant */}
-        <RoadTripPlanner
-          distanceMil={tripDistanceMil}
-          vehicle={vehicle}
-          conditions={conditions}
-          petrolPricePerLiter={fuelPrice.pricePerLiter}
-          onSelectRoutePreset={handleSelectRoutePreset}
-        />
+            {/* 2. Occasional Driver Road Trip Assistant */}
+            <RoadTripPlanner
+              distanceMil={tripDistanceMil}
+              vehicle={vehicle}
+              conditions={conditions}
+              petrolPricePerLiter={fuelPrice.pricePerLiter}
+              homePricePerKwh={homePrice}
+              fastPricePerKwh={fastPrice}
+              onSelectRoutePreset={handleSelectRoutePreset}
+            />
 
         {/* 3. Driving Conditions (Winter, Roof Box, Highway Speed) */}
         <TripConditionsSelector
@@ -367,6 +464,11 @@ export const App: React.FC = () => {
           destAddress={destAddress}
           savedTripsCount={trips.length}
           onDataReloaded={loadDataFromDb}
+          isSyncing={syncStatus.isSyncing}
+          lastSyncedAt={syncStatus.lastSyncedAt}
+          syncError={syncStatus.error}
+          onManualSync={handleManualSync}
+          cloudDocId={syncStatus.cloudDocId}
         />
 
         {/* 7. Trip History & Saved Routes */}
@@ -385,7 +487,13 @@ export const App: React.FC = () => {
           isRoundTrip={isRoundTrip}
         />
 
-        {/* 8. Scenario & Price Comparison */}
+        {/* 8. Månadsuppskattning för scenarier och månadskostnad */}
+        <MonthlySettings
+          monthlyDistanceMil={monthlyDistanceMil}
+          onMonthlyDistanceChange={handleMonthlyDistanceChange}
+        />
+
+        {/* 9. Scenario & Price Comparison */}
         <ScenarioComparison
           scenarios={scenarios}
           results={results}

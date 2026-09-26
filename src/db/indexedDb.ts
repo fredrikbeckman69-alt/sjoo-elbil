@@ -277,22 +277,57 @@ export async function clearAllTrips(): Promise<void> {
 }
 
 // ----------------------------------------------------
+export async function getAllSettings(): Promise<Record<string, any>> {
+  try {
+    const db = await getDatabase();
+    return new Promise((resolve) => {
+      const tx = db.transaction(STORES.SETTINGS, 'readonly');
+      const store = tx.objectStore(STORES.SETTINGS);
+      const req = store.getAll();
+
+      req.onsuccess = () => {
+        const records = (req.result as Array<{ key: string; value: any }>) || [];
+        const map: Record<string, any> = {};
+        for (const item of records) {
+          map[item.key] = item.value;
+        }
+        resolve(map);
+      };
+
+      req.onerror = () => resolve({});
+    });
+  } catch (error) {
+    console.warn('IndexedDB getAllSettings fel:', error);
+    return {};
+  }
+}
+
+// ----------------------------------------------------
 // EXPORT / IMPORT / RESET
 // ----------------------------------------------------
 export async function exportDatabaseBackup(
   currentVehicle: VehicleProfile,
   currentScenarios: ChargingScenario[],
-  currentSettings: Record<string, any>
+  currentSettings?: Record<string, any>
 ): Promise<DatabaseBackup> {
-  const trips = await getAllTrips();
+  const [trips, allDbSettings] = await Promise.all([
+    getAllTrips(),
+    getAllSettings(),
+  ]);
+
+  const mergedSettings = { ...allDbSettings, ...(currentSettings || {}) };
+
   return {
     version: 1,
     databaseName: DB_NAME,
     exportedAt: new Date().toISOString(),
     vehicle: currentVehicle,
     scenarios: currentScenarios,
-    settings: currentSettings,
+    settings: mergedSettings,
     trips,
+    checklist: mergedSettings['tripChecklist'],
+    conditions: mergedSettings['tripConditions'],
+    isRoundTrip: mergedSettings['isRoundTrip'],
   };
 }
 
@@ -325,6 +360,17 @@ export async function importDatabaseBackup(backup: DatabaseBackup): Promise<void
     for (const [key, value] of Object.entries(backup.settings)) {
       await setSetting(key, value);
     }
+  }
+
+  // Säkerställ att eventuella separata fält i äldre backups också sparas
+  if (backup.checklist) {
+    await setSetting('tripChecklist', backup.checklist);
+  }
+  if (backup.conditions) {
+    await setSetting('tripConditions', backup.conditions);
+  }
+  if (backup.isRoundTrip !== undefined) {
+    await setSetting('isRoundTrip', backup.isRoundTrip);
   }
 }
 
