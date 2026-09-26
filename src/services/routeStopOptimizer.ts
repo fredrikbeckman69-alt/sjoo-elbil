@@ -265,7 +265,9 @@ export function findOptimalChargingStopsAlongRoute(params: {
 
   const carMaxChargePowerKw = batteryCap <= 60 ? 135 : 175;
 
-  while (remainingMil > currentRangeMil && stops.length < 5) {
+  // Dynamiskt tak för att skydda mot oändliga loopar utan att begränsa långa resor (t.ex. Malmö–Pajala/Treriksröset)
+  const maxAllowedStops = Math.max(30, Math.ceil(totalDistanceMil / 5));
+  while (remainingMil > currentRangeMil && stops.length < maxAllowedStops) {
     const idealMilestone = currentMilestone + currentRangeMil * 0.85;
 
     let chosenStation: StationOnRoute | null = null;

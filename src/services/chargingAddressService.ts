@@ -409,6 +409,198 @@ export const KNOWN_SWEDISH_CHARGING_HUBS: KnownStationHub[] = [
       'default': 'Gillebergsgatan 1, 856 33 Sundsvall',
     },
   },
+  {
+    city: 'Tierp',
+    name: 'Tierp Snabbladdare',
+    street: 'Gryttjom 101',
+    postcode: '815 91',
+    lat: 60.340,
+    lon: 17.488,
+    operators: {
+      'mer': 'Gryttjom 101, 815 91 Tierp',
+      'circle-k': 'Gryttjom 101, 815 91 Tierp',
+      'default': 'Gryttjom 101, 815 91 Tierp',
+    },
+  },
+  {
+    city: 'Kvissleby',
+    name: 'Kvissleby Snabbladdare',
+    street: 'Centrumvägen 4',
+    postcode: '862 31',
+    lat: 62.299,
+    lon: 17.378,
+    operators: {
+      'mer': 'Centrumvägen 4, 862 31 Kvissleby',
+      'default': 'Centrumvägen 4, 862 31 Kvissleby',
+    },
+  },
+  {
+    city: 'Gnarp',
+    name: 'Gnarp Snabbladdare',
+    street: 'Gnarpskorset 1',
+    postcode: '829 60',
+    lat: 61.986,
+    lon: 17.251,
+    operators: {
+      'circle-k': 'Gnarpskorset 1, 829 60 Gnarp',
+      'mer': 'Gnarpskorset 1, 829 60 Gnarp',
+      'default': 'Gnarpskorset 1, 829 60 Gnarp',
+    },
+  },
+  {
+    city: 'Härnösand',
+    name: 'Härnösand Supercharger & Snabbladdare',
+    street: 'Smedjevägen 2',
+    postcode: '871 53',
+    lat: 62.632,
+    lon: 17.940,
+    operators: {
+      'tesla-supercharger': 'Smedjevägen 2, 871 53 Härnösand',
+      'circle-k': 'Verkstadsgatan 2, 871 54 Härnösand',
+      'default': 'Smedjevägen 2, 871 53 Härnösand',
+    },
+  },
+  {
+    city: 'Örnsköldsvik',
+    name: 'Örnsköldsvik Snabbladdare',
+    street: 'Hästmarksvägen 2',
+    postcode: '891 38',
+    lat: 63.291,
+    lon: 18.718,
+    operators: {
+      'tesla-supercharger': 'Hästmarksvägen 2, 891 38 Örnsköldsvik',
+      'circle-k': 'Tegelbruksvägen 1, 891 55 Örnsköldsvik',
+      'ionity': 'Hästmarksvägen 2, 891 38 Örnsköldsvik',
+      'default': 'Hästmarksvägen 2, 891 38 Örnsköldsvik',
+    },
+  },
+  {
+    city: 'Nordmaling',
+    name: 'Nordmaling Resecentrum Snabbladdare',
+    street: 'Södra Kungsvägen 2',
+    postcode: '914 32',
+    lat: 63.578,
+    lon: 19.486,
+    operators: {
+      'circle-k': 'Södra Kungsvägen 2, 914 32 Nordmaling',
+      'default': 'Södra Kungsvägen 2, 914 32 Nordmaling',
+    },
+  },
+  {
+    city: 'Umeå',
+    name: 'Umeå Snabbladdningshubb',
+    street: 'Formvägen 4',
+    postcode: '906 21',
+    lat: 63.845,
+    lon: 20.312,
+    operators: {
+      'tesla-supercharger': 'Formvägen 4, 906 21 Umeå',
+      'ionity': 'Klockarbäcksvägen 2, 901 37 Umeå',
+      'circle-k': 'Formvägen 2, 906 21 Umeå',
+      'okq8': 'Kronoskogsvägen 2, 903 61 Umeå',
+      'default': 'Formvägen 4, 906 21 Umeå',
+    },
+  },
+  {
+    city: 'Jävre',
+    name: 'Ionity & Snabbladdare Jävre',
+    street: 'Riksvägen 1',
+    postcode: '944 94',
+    lat: 65.140,
+    lon: 21.503,
+    operators: {
+      'ionity': 'Riksvägen 1, 944 94 Jävre',
+      'default': 'Riksvägen 1, 944 94 Jävre',
+    },
+  },
+  {
+    city: 'Skellefteå',
+    name: 'Skellefteå Snabbladdningshubb',
+    street: 'Gymnasievägen 14',
+    postcode: '931 57',
+    lat: 64.750,
+    lon: 20.953,
+    operators: {
+      'tesla-supercharger': 'Gymnasievägen 14, 931 57 Skellefteå',
+      'circle-k': 'Varugatan 1, 931 76 Skellefteå',
+      'ionity': 'Tjärnvägen 1, 931 61 Skellefteå',
+      'default': 'Gymnasievägen 14, 931 57 Skellefteå',
+    },
+  },
+  {
+    city: 'Piteå',
+    name: 'Piteå Snabbladdare',
+    street: 'Fläktgatan 10',
+    postcode: '941 47',
+    lat: 65.317,
+    lon: 21.480,
+    operators: {
+      'tesla-supercharger': 'Fläktgatan 10, 941 47 Piteå',
+      'circle-k': 'Batterigatan 2, 941 47 Piteå',
+      'default': 'Fläktgatan 10, 941 47 Piteå',
+    },
+  },
+  {
+    city: 'Luleå',
+    name: 'Luleå Storheden Snabbladdare',
+    street: 'Betongvägen 1',
+    postcode: '973 45',
+    lat: 65.617,
+    lon: 22.052,
+    operators: {
+      'tesla-supercharger': 'Betongvägen 1, 973 45 Luleå',
+      'circle-k': 'Betongvägen 2, 973 45 Luleå',
+      'okq8': 'Midgårdsvägen 24, 973 34 Luleå',
+      'default': 'Betongvägen 1, 973 45 Luleå',
+    },
+  },
+  {
+    city: 'Töre',
+    name: 'Töre Snabbladdare E4/E10',
+    street: 'Klippgränd 3',
+    postcode: '952 42',
+    lat: 65.914,
+    lon: 22.651,
+    operators: {
+      'tesla-supercharger': 'Klippgränd 3, 952 42 Töre',
+      'default': 'Klippgränd 3, 952 42 Töre',
+    },
+  },
+  {
+    city: 'Kalix',
+    name: 'Kalix Snabbladdare',
+    street: 'Valhallavägen 62',
+    postcode: '952 31',
+    lat: 65.854,
+    lon: 23.141,
+    operators: {
+      'circle-k': 'Valhallavägen 62, 952 31 Kalix',
+      'okq8': 'Stabsvägen 2, 952 51 Kalix',
+      'default': 'Valhallavägen 62, 952 31 Kalix',
+    },
+  },
+  {
+    city: 'Övertorneå',
+    name: 'Övertorneå Snabbladdare',
+    street: 'Matarengivägen 24',
+    postcode: '957 31',
+    lat: 66.388,
+    lon: 23.655,
+    operators: {
+      'default': 'Matarengivägen 24, 957 31 Övertorneå',
+    },
+  },
+  {
+    city: 'Pajala',
+    name: 'Pajala Snabbladdningsstation',
+    street: 'Tornedalsvägen 6',
+    postcode: '984 31',
+    lat: 67.214,
+    lon: 23.367,
+    operators: {
+      'default': 'Tornedalsvägen 6, 984 31 Pajala',
+    },
+  },
 ];
 
 // Minnescache för geokodade koordinater för att undvika onödiga nätverksanrop
@@ -618,8 +810,21 @@ export function resolveCorridorPhysicalAddress(params: {
     }
   }
 
-  // 5. Fallback baserat på närmaste hubb eller koordinater
-  const defaultHub = KNOWN_SWEDISH_CHARGING_HUBS[0]; // Borlänge som standard
+  // 5. Fallback baserat på närmaste hubb utifrån koordinater
+  if (coordinates && coordinates[0] !== 0 && coordinates[1] !== 0) {
+    const nearestHub = findNearestKnownHub(coordinates[0], coordinates[1], 200);
+    if (nearestHub) {
+      const addr = nearestHub.operators[operatorId] || nearestHub.operators['default'] || `${nearestHub.street}, ${nearestHub.postcode} ${nearestHub.city}`;
+      return {
+        address: addr,
+        city: nearestHub.city,
+        stationName: `${operatorName} ${nearestHub.city}`,
+        coordinates: [nearestHub.lat, nearestHub.lon],
+      };
+    }
+  }
+
+  const defaultHub = KNOWN_SWEDISH_CHARGING_HUBS[0]; // Standard fallback
   return {
     address: defaultHub.operators[operatorId] || defaultHub.operators['default'],
     city: defaultHub.city,
@@ -646,9 +851,9 @@ export function formatPhysicalAddressForStation(
   city: string;
   street: string;
 } {
-  // 1. Prova koordinatmatchning mot kända svenska hubbar
+  // 1. Prova koordinatmatchning mot kända svenska hubbar (inom 15 km)
   if (station.lat && station.lon) {
-    const hub = findNearestKnownHub(station.lat, station.lon, 2.5); // Inom 2.5 km från känd hubb
+    const hub = findNearestKnownHub(station.lat, station.lon, 15);
     if (hub) {
       const opKey = operatorId || 'default';
       const hubAddress = hub.operators[opKey] || hub.operators['default'];
