@@ -1,6 +1,6 @@
 import React from 'react';
-import { Zap, ShieldCheck, BatteryCharging, Gauge, Cloud, RefreshCw } from 'lucide-react';
-import { VehicleProfile } from '../types';
+import { Zap, ShieldCheck, BatteryCharging, Gauge, Cloud, RefreshCw, User, Lock } from 'lucide-react';
+import { VehicleProfile, UserAccount } from '../types';
 import { kwhPer100KmToKwhPerMil, calculateRange } from '../utils/calculations';
 import carImage from '../assets/bil.jpg';
 
@@ -11,6 +11,9 @@ interface HeaderHeroProps {
   isSyncing?: boolean;
   lastSyncedAt?: Date | null;
   onManualSync?: () => void;
+  currentUser?: UserAccount | null;
+  onLogout?: () => void;
+  onOpenProfile?: () => void;
 }
 
 export const HeaderHero: React.FC<HeaderHeroProps> = ({
@@ -20,17 +23,23 @@ export const HeaderHero: React.FC<HeaderHeroProps> = ({
   isSyncing,
   lastSyncedAt,
   onManualSync,
+  currentUser,
+  onLogout,
+  onOpenProfile,
 }) => {
   const kwhPerMil = kwhPer100KmToKwhPerMil(vehicle.consumptionKwhPer100Km);
   const { rangeKm, rangeMil } = calculateRange(vehicle.batteryCapacityKwh, vehicle.consumptionKwhPer100Km);
+
+  // Använd egen uppladdad bild om sådan finns, annars standardbild
+  const displayImage = currentUser?.photoUrl || vehicle.photoUrl || carImage;
 
   return (
     <header className="relative overflow-hidden rounded-3xl bg-slate-900 border border-slate-800 shadow-2xl mb-8">
       {/* Background Image with Gradient Overlay */}
       <div className="relative h-64 sm:h-72 md:h-80 w-full overflow-hidden">
         <img
-          src={carImage}
-          alt="Elbil"
+          src={displayImage}
+          alt={vehicle.name}
           className="w-full h-full object-cover object-center filter brightness-[0.85] contrast-[1.05] transition-transform duration-700 hover:scale-105"
         />
         <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/60 to-transparent" />
@@ -65,9 +74,35 @@ export const HeaderHero: React.FC<HeaderHeroProps> = ({
               </button>
             )}
           </div>
-          <div className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-slate-800/80 border border-slate-700 text-slate-300 text-xs font-medium backdrop-blur-md">
-            <ShieldCheck className="w-3.5 h-3.5 text-cyan-400" />
-            iOS Safe Area & Svensk Standard
+          <div className="flex items-center gap-2">
+            {currentUser && onOpenProfile && (
+              <button
+                type="button"
+                onClick={onOpenProfile}
+                className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-900/90 hover:bg-slate-800 border border-slate-700 hover:border-cyan-500/50 text-slate-300 hover:text-white text-xs font-semibold backdrop-blur-md transition active:scale-95 shadow-md cursor-pointer"
+                title="Hantera profil, bilbild och pinkod"
+              >
+                <User className="w-3.5 h-3.5 text-cyan-400" />
+                <span>{currentUser.ownerName || 'Min profil'}</span>
+                <span className="hidden md:inline text-[10px] text-slate-400">• Byt bild/PIN</span>
+              </button>
+            )}
+            {currentUser && onLogout && (
+              <button
+                type="button"
+                onClick={onLogout}
+                className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-900/90 hover:bg-slate-800 border border-slate-700 hover:border-amber-500/50 text-slate-300 hover:text-white text-xs font-semibold backdrop-blur-md transition active:scale-95 shadow-md cursor-pointer"
+                title="Lås appen och byt fordon"
+              >
+                <Lock className="w-3.5 h-3.5 text-amber-400" />
+                <span className="font-mono text-cyan-300 font-bold">{currentUser.regnr}</span>
+                <span className="hidden sm:inline text-slate-400">• Lås</span>
+              </button>
+            )}
+            <div className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-slate-800/80 border border-slate-700 text-slate-300 text-xs font-medium backdrop-blur-md">
+              <ShieldCheck className="w-3.5 h-3.5 text-cyan-400" />
+              iOS Safe Area & Svensk Standard
+            </div>
           </div>
         </div>
 
@@ -77,7 +112,7 @@ export const HeaderHero: React.FC<HeaderHeroProps> = ({
             <div>
               <p className="text-xs font-semibold uppercase tracking-wider text-cyan-400 flex items-center gap-1">
                 <Zap className="w-3.5 h-3.5 fill-cyan-400 text-cyan-400" />
-                Förbruknings- & Kostnadskalkyl
+                {currentUser?.ownerName ? `${currentUser.ownerName}s Elbil • ` : ''}Förbruknings- & Kostnadskalkyl
               </p>
               <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight mt-0.5">
                 {vehicle.name}

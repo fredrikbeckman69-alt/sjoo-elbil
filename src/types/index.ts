@@ -3,7 +3,21 @@ export interface VehicleProfile {
   name: string;
   consumptionKwhPer100Km: number; // e.g. 18.5
   batteryCapacityKwh: number; // e.g. 77
+  photoUrl?: string;
 }
+
+export interface UserAccount {
+  id: string; // unik id / regnr
+  regnr: string;
+  name: string;
+  ownerName?: string; // Användarens / förarens namn, t.ex. "Markus Sjöö"
+  pinCode: string; // 4-siffrig pinkod
+  photoUrl?: string; // Data-URL eller länk till uppladdad bild på bilen
+  createdAt: string;
+  vehicleProfile: VehicleProfile;
+  color?: string;
+}
+
 
 export interface ChargingScenario {
   id: string;

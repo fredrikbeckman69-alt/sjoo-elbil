@@ -15,6 +15,7 @@ import {
   SavedTrip,
   TripConditions,
   ChecklistItem,
+  UserAccount,
 } from './types';
 import {
   DEFAULT_VEHICLE,
@@ -42,7 +43,14 @@ import { VehicleRegistryTab } from './components/VehicleRegistryTab';
 import { ChargingOperatorsTab } from './components/ChargingOperatorsTab';
 import { NavigationTabs, AppTab } from './components/NavigationTabs';
 import { CalculatedPlanCost } from './types/chargingOperators';
-import { Zap, ExternalLink, Loader2, Database } from 'lucide-react';
+import { Zap, ExternalLink, Loader2, Database, Lock, User } from 'lucide-react';
+import { LoginPage } from './components/LoginPage';
+import { UserProfileModal } from './components/UserProfileModal';
+import {
+  getLastSelectedVehicleId,
+  setLastSelectedVehicleId,
+} from './services/authService';
+import { formatRegnrPlate } from './services/vehicleRegistryService';
 import {
   startAutoSync,
   pushCloudState,
@@ -55,6 +63,8 @@ const ChargingMap = React.lazy(() => import('./components/ChargingMap'));
 
 export const App: React.FC = () => {
   const [isDbLoaded, setIsDbLoaded] = useState(false);
+  const [currentUser, setCurrentUser] = useState<UserAccount | null>(null);
+  const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
 
   // States som synkas med IndexedDB och molnet
   const [vehicle, setVehicleState] = useState<VehicleProfile>(DEFAULT_VEHICLE);
@@ -122,6 +132,47 @@ export const App: React.FC = () => {
   useEffect(() => {
     loadDataFromDb();
   }, [loadDataFromDb]);
+
+  const handleLoginSuccess = (account: UserAccount) => {
+    setCurrentUser(account);
+    setLastSelectedVehicleId(account.id);
+    if (account.vehicleProfile) {
+      handleVehicleChange(account.vehicleProfile);
+    }
+  };
+
+  const handleLogout = () => {
+    setCurrentUser(null);
+  };
+
+  const handleAccountUpdated = (updated: UserAccount) => {
+    setCurrentUser(updated);
+    if (updated.vehicleProfile) {
+      handleVehicleChange(updated.vehicleProfile);
+    }
+  };
+
+  // Automatisk låsning vid 15 minuters inaktivitet (säkerställer att ingen kan använda appen utan PIN)
+  useEffect(() => {
+    if (!currentUser) return;
+
+    let timeoutId: number;
+    const resetTimer = () => {
+      window.clearTimeout(timeoutId);
+      timeoutId = window.setTimeout(() => {
+        setCurrentUser(null);
+      }, 15 * 60 * 1000);
+    };
+
+    resetTimer();
+    const events = ['mousedown', 'mousemove', 'keydown', 'touchstart', 'scroll'];
+    events.forEach((evt) => window.addEventListener(evt, resetTimer, { passive: true }));
+
+    return () => {
+      window.clearTimeout(timeoutId);
+      events.forEach((evt) => window.removeEventListener(evt, resetTimer));
+    };
+  }, [currentUser]);
 
   // Lyssna på molnsynkronisering och uppdatera lokalt tillstånd när någon användare gör ändringar
   useEffect(() => {
@@ -359,6 +410,17 @@ export const App: React.FC = () => {
     );
   }
 
+  // Förstasida: Inloggning och fordonsval med siffersats
+  // Blockerar 100% av appen tills giltig 4-siffrig pinkod slagits in
+  if (!currentUser) {
+    return (
+      <LoginPage
+        onLoginSuccess={handleLoginSuccess}
+        initialAccountId={getLastSelectedVehicleId() || vehicle.id}
+      />
+    );
+  }
+
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col selection:bg-emerald-500 selection:text-white safe-top-p safe-bottom-p">
       {/* Top ambient glow */}
@@ -366,6 +428,67 @@ export const App: React.FC = () => {
 
       {/* Main Container */}
       <main className="w-full max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6 flex-1 space-y-6">
+        {/* User Session & Vehicle Plate Bar */}
+        <div className="flex flex-wrap items-center justify-between gap-3 bg-slate-900/80 border border-slate-800 rounded-2xl px-4 py-2.5 backdrop-blur-md shadow-lg">
+          <div className="flex items-center gap-3">
+            {currentUser.photoUrl ? (
+              <img
+                src={currentUser.photoUrl}
+                alt="Bil"
+                className="w-10 h-10 rounded-xl object-cover border border-slate-700 shadow flex-shrink-0 cursor-pointer hover:opacity-90 transition"
+                onClick={() => setIsProfileModalOpen(true)}
+                title="Klicka för att hantera profil och bilbild"
+              />
+            ) : (
+              <div className="inline-flex items-center bg-white text-slate-950 font-black font-mono text-xs px-2.5 py-1 rounded shadow border border-slate-300 flex-shrink-0">
+                <span className="bg-blue-600 text-white text-[9px] font-bold px-1 py-0.5 rounded-l -ml-2 mr-1">
+                  S
+                </span>
+                {formatRegnrPlate(currentUser.regnr)}
+              </div>
+            )}
+            <div>
+              <div className="flex items-center gap-1.5 flex-wrap">
+                {currentUser.photoUrl && (
+                  <div className="inline-flex items-center bg-white text-slate-950 font-black font-mono text-[10px] px-1.5 py-0.2 rounded shadow border border-slate-300">
+                    {formatRegnrPlate(currentUser.regnr)}
+                  </div>
+                )}
+                {currentUser.ownerName && (
+                  <span className="text-xs font-bold text-cyan-300">{currentUser.ownerName}</span>
+                )}
+                <span className="text-xs text-slate-400">•</span>
+                <span className="text-xs font-bold text-white">{currentUser.name}</span>
+              </div>
+              <span className="text-[11px] text-slate-400 hidden sm:inline">
+                {vehicle.batteryCapacityKwh} kWh • {vehicle.consumptionKwhPer100Km} kWh/100km
+              </span>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setIsProfileModalOpen(true)}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 hover:border-cyan-500/40 text-slate-300 hover:text-white text-xs font-semibold transition active:scale-95 cursor-pointer shadow-sm"
+              title="Hantera profil, bilbild och pinkod"
+            >
+              <User className="w-3.5 h-3.5 text-cyan-400" />
+              <span>Profil & Pinkod</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={handleLogout}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 hover:border-amber-500/40 text-slate-300 hover:text-white text-xs font-semibold transition active:scale-95 cursor-pointer shadow-sm"
+              title="Lås appen eller byt fordon"
+            >
+              <Lock className="w-3.5 h-3.5 text-amber-400" />
+              <span>Lås</span>
+            </button>
+          </div>
+        </div>
+
         {/* Navigation Tabs */}
         <NavigationTabs
           activeTab={activeTab}
@@ -413,6 +536,9 @@ export const App: React.FC = () => {
               isSyncing={syncStatus.isSyncing}
               lastSyncedAt={syncStatus.lastSyncedAt}
               onManualSync={handleManualSync}
+              currentUser={currentUser}
+              onLogout={handleLogout}
+              onOpenProfile={() => setIsProfileModalOpen(true)}
             />
 
             {/* 2. Occasional Driver Road Trip Assistant */}
@@ -555,6 +681,16 @@ export const App: React.FC = () => {
           </div>
         </div>
       </footer>
+
+      {/* Profil & Fordonshanteringsmodal (Byt bild, ändra namn, byt pinkod) */}
+      {currentUser && (
+        <UserProfileModal
+          currentUser={currentUser}
+          isOpen={isProfileModalOpen}
+          onClose={() => setIsProfileModalOpen(false)}
+          onAccountUpdated={handleAccountUpdated}
+        />
+      )}
     </div>
   );
 };
