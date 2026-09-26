@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   Zap,
   MapPin,
@@ -9,9 +9,12 @@ import {
   Gauge,
   Sliders,
   Sparkles,
+  ExternalLink,
 } from 'lucide-react';
 import { VehicleProfile, TripConditions } from '../types';
+import { ChargingOperator } from '../types/chargingOperators';
 import { SWEDISH_CHARGING_OPERATORS } from '../data/chargingOperatorsData';
+import { fetchCurrentOperatorPrices } from '../services/operatorPriceService';
 import {
   findOptimalChargingStopsAlongRoute,
   RouteOptimizationResult,
@@ -47,17 +50,52 @@ export const OperatorRoutePlanner: React.FC<OperatorRoutePlannerProps> = ({
   homePricePerKwh = 1.15,
   petrolPricePerLiter = 17.59,
 }) => {
+  const [operators, setOperators] = useState<ChargingOperator[]>(SWEDISH_CHARGING_OPERATORS);
   const [selectedOperatorId, setSelectedOperatorId] = useState<string>('tesla-supercharger');
   const [isSubscription, setIsSubscription] = useState<boolean>(false);
   const [searchFilter, setSearchFilter] = useState<string>('');
   const [showVehicleSettings, setShowVehicleSettings] = useState<boolean>(false);
   const [startBatteryPercent, setStartBatteryPercent] = useState<number>(100);
 
+  // Läs in aktuella priser och schemalägg timvis uppdatering
+  useEffect(() => {
+    fetchCurrentOperatorPrices().then((fresh) => {
+      if (fresh && fresh.length > 0) {
+        setOperators(fresh);
+      }
+    });
+
+    // Kontrollera priser en gång i timmen
+    const interval = setInterval(() => {
+      fetchCurrentOperatorPrices().then((fresh) => {
+        if (fresh && fresh.length > 0) {
+          setOperators(fresh);
+        }
+      });
+    }, 3600000);
+
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') {
+        fetchCurrentOperatorPrices().then((fresh) => {
+          if (fresh && fresh.length > 0) {
+            setOperators(fresh);
+          }
+        });
+      }
+    };
+    document.addEventListener('visibilitychange', onVisible);
+
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', onVisible);
+    };
+  }, []);
+
   // Hämta vald operatör
   const selectedOperator = useMemo(() => {
-    const found = SWEDISH_CHARGING_OPERATORS.find((op) => op.id === selectedOperatorId);
-    return found || SWEDISH_CHARGING_OPERATORS[0];
-  }, [selectedOperatorId]);
+    const found = operators.find((op) => op.id === selectedOperatorId);
+    return found || operators[0] || SWEDISH_CHARGING_OPERATORS[0];
+  }, [operators, selectedOperatorId]);
 
   // Välj plan (abonnemang vs drop-in)
   const activePlan = useMemo(() => {
@@ -78,21 +116,23 @@ export const OperatorRoutePlanner: React.FC<OperatorRoutePlannerProps> = ({
 
   // Filtrera operatörslistan vid sökning
   const filteredOperators = useMemo(() => {
-    if (!searchFilter.trim()) return SWEDISH_CHARGING_OPERATORS;
+    if (!searchFilter.trim()) return operators;
     const q = searchFilter.toLowerCase();
-    return SWEDISH_CHARGING_OPERATORS.filter(
+    return operators.filter(
       (op) =>
         op.name.toLowerCase().includes(q) ||
         (op.summary && op.summary.toLowerCase().includes(q)) ||
         (op.badgeTag && op.badgeTag.toLowerCase().includes(q))
     );
-  }, [searchFilter]);
+  }, [operators, searchFilter]);
 
   // Beräkna optimala laddstopp längs rutten
   const optimizationResult: RouteOptimizationResult = useMemo(() => {
     return findOptimalChargingStopsAlongRoute({
       routeCoordinates,
       totalDistanceMil: tripDistanceMil,
+      startAddress,
+      destAddress,
       operatorId: selectedOperator.id,
       operatorName: selectedOperator.name,
       pricePerKwh: priceDcKwh,
@@ -106,6 +146,8 @@ export const OperatorRoutePlanner: React.FC<OperatorRoutePlannerProps> = ({
   }, [
     routeCoordinates,
     tripDistanceMil,
+    startAddress,
+    destAddress,
     selectedOperator,
     priceDcKwh,
     sessionFee,
@@ -451,16 +493,41 @@ export const OperatorRoutePlanner: React.FC<OperatorRoutePlannerProps> = ({
                           )}
                         </div>
 
-                        {/* Plats & Milstolpe utan förkortningar eller dubblering */}
-                        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-slate-400 text-xs mt-1">
-                          <div className="flex items-center gap-1 text-slate-300">
-                            <MapPin className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
-                            <span>{stop.streetAndCity || 'Längs resvägen'}</span>
+                        {/* Fysisk adress & Milstolpe */}
+                        <div className="mt-1.5 space-y-1 text-xs">
+                          {/* Fysisk adress med tydlig markör och kartlänk */}
+                          <div className="flex items-start gap-1.5 text-slate-200">
+                            <MapPin className="w-3.5 h-3.5 text-rose-400 shrink-0 mt-0.5" />
+                            <div className="min-w-0 flex-1">
+                              <span className="text-slate-400 text-[11px] font-medium mr-1.5">Fysisk adress:</span>
+                              <span className="font-semibold text-white selection:bg-rose-500/30 break-words">
+                                {stop.address || stop.streetAndCity}
+                              </span>
+                            </div>
+                            <a
+                              href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent((stop.address || stop.streetAndCity) + ' ' + stop.station.name)}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-[10px] text-cyan-400 hover:text-cyan-300 hover:underline flex items-center gap-0.5 shrink-0 bg-slate-900 border border-slate-700/80 px-2 py-0.5 rounded-md transition shadow-xs"
+                              title="Öppna fysisk adress i karta"
+                            >
+                              <span>Karta</span>
+                              <ExternalLink className="w-2.5 h-2.5" />
+                            </a>
                           </div>
-                          <span className="text-slate-600">•</span>
-                          <span className="text-amber-400/90 font-mono-numbers font-medium">
-                            Milstolpe: {stop.milestoneMil} mil ({Math.round(stop.milestoneMil * 10)} km)
-                          </span>
+
+                          {/* Milstolpe längs färdvägen */}
+                          <div className="flex items-center gap-2 text-[11px] text-slate-400 pl-5">
+                            <span className="text-amber-400/90 font-mono-numbers font-medium">
+                              Milstolpe: {stop.milestoneMil} mil ({Math.round(stop.milestoneMil * 10)} km)
+                            </span>
+                            {stop.city && stop.city !== stop.address && (
+                              <>
+                                <span className="text-slate-600">•</span>
+                                <span className="text-slate-300 font-medium">{stop.city}</span>
+                              </>
+                            )}
+                          </div>
                         </div>
                       </div>
                     </div>

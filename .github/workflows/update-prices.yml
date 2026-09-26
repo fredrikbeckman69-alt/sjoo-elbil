@@ -1,0 +1,32 @@
+name: Hourly Price Checker & Updater
+
+on:
+  schedule:
+    # Körs varje timme (på minut 0)
+    - cron: '0 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  update-prices:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Run hourly price fetcher
+        run: node scripts/fetch-prices.mjs
+
+      - name: Commit and push updated prices
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "Sjöö Price Automation Bot"
+          git add public/data/operator_prices.json public/data/fuel_prices.json
+          git diff --quiet && git diff --staged --quiet || (git commit -m "chore(prices): automatisk timvis uppdatering av ladd- och bensinpriser [skip ci]" && git push)

@@ -4,6 +4,10 @@ import {
   calculateEffectiveConsumption,
   kwhPer100KmToKwhPerMil,
 } from '../utils/calculations';
+import {
+  formatPhysicalAddressForStation,
+  resolveCorridorPhysicalAddress,
+} from './chargingAddressService';
 
 export interface OptimalChargingStop {
   station: ChargingStation;
@@ -17,6 +21,9 @@ export interface OptimalChargingStop {
   operatorName: string;
   powerKw: number;
   streetAndCity: string;
+  address: string; // Verifierad fullständig fysisk adress
+  city?: string;
+  coordinates?: [number, number];
 }
 
 export interface RouteOptimizationResult {
@@ -106,6 +113,8 @@ function getOperatorDefaultPowerKw(operatorId: string, station: ChargingStation)
 export function findOptimalChargingStopsAlongRoute(params: {
   routeCoordinates?: [number, number][]; // [lat, lon] längs hela rutten
   totalDistanceMil: number;
+  startAddress?: string;
+  destAddress?: string;
   operatorId: string;
   operatorName: string;
   pricePerKwh: number;
@@ -119,6 +128,8 @@ export function findOptimalChargingStopsAlongRoute(params: {
   const {
     routeCoordinates = [],
     totalDistanceMil,
+    startAddress = '',
+    destAddress = '',
     operatorId,
     operatorName,
     pricePerKwh,
@@ -310,29 +321,66 @@ export function findOptimalChargingStopsAlongRoute(params: {
 
     const costSek = Number((kwhToCharge * pricePerKwh + sessionFee).toFixed(0));
 
-    const stationObj: ChargingStation = chosenStation?.station || {
-      id: 999000 + stops.length,
-      name: `${operatorName} Snabbladdare`,
-      lat: 0,
-      lon: 0,
-      operator: operatorName,
-      capacity: 8,
-      ccs: true,
-      chademo: false,
-      type2: false,
-      maxPowerKw: stationPower,
-      street: null,
-      city: 'Längs färdvägen',
-    };
+    // Fastställ station, fysisk adress och plats
+    let stationObj: ChargingStation;
+    let finalAddress = '';
+    let finalStreetAndCity = '';
+    let stopCoords: [number, number] | undefined = undefined;
 
-    let streetAndCity = 'Längs färdvägen';
     if (chosenStation?.station) {
       const s = chosenStation.station;
-      if (s.city && s.street && !s.street.toLowerCase().includes('milstolpe')) {
-        streetAndCity = `${s.city} (${s.street})`;
-      } else {
-        streetAndCity = s.city || s.street || 'Längs rutten';
+      const enriched = formatPhysicalAddressForStation(s, operatorId);
+      finalAddress = enriched.address;
+      finalStreetAndCity = enriched.address;
+      stopCoords = s.lat && s.lon ? [s.lat, s.lon] : undefined;
+
+      stationObj = {
+        ...s,
+        street: s.street || enriched.street,
+        city: s.city || enriched.city,
+      };
+    } else {
+      // Hitta koordinat längs ruttlinjen om sådan finns
+      let approxPt: [number, number] | undefined = undefined;
+      if (routePointsWithMil.length > 0) {
+        let bestDist = Infinity;
+        for (const pt of routePointsWithMil) {
+          const d = Math.abs(pt.cumulativeMil * distanceScale - stopMilestone);
+          if (d < bestDist) {
+            bestDist = d;
+            approxPt = [pt.lat, pt.lon];
+          }
+        }
       }
+
+      const corridor = resolveCorridorPhysicalAddress({
+        milestoneMil: stopMilestone,
+        totalDistanceMil,
+        startAddress,
+        destAddress,
+        operatorId,
+        operatorName,
+        coordinates: approxPt,
+      });
+
+      finalAddress = corridor.address;
+      finalStreetAndCity = corridor.address;
+      stopCoords = corridor.coordinates;
+
+      stationObj = {
+        id: 999000 + stops.length,
+        name: corridor.stationName,
+        lat: corridor.coordinates[0],
+        lon: corridor.coordinates[1],
+        operator: operatorName,
+        capacity: 8,
+        ccs: true,
+        chademo: false,
+        type2: false,
+        maxPowerKw: stationPower,
+        street: corridor.address.split(',')[0],
+        city: corridor.city,
+      };
     }
 
     stops.push({
@@ -346,7 +394,10 @@ export function findOptimalChargingStopsAlongRoute(params: {
       costSek,
       operatorName: chosenStation?.station.operator || operatorName,
       powerKw: stationPower,
-      streetAndCity,
+      streetAndCity: finalStreetAndCity,
+      address: finalAddress,
+      city: stationObj.city || undefined,
+      coordinates: stopCoords,
     });
 
     currentMilestone = stopMilestone;

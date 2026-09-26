@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   Zap,
   Search,
@@ -9,6 +9,8 @@ import {
   Building2,
 } from 'lucide-react';
 import { SWEDISH_CHARGING_OPERATORS } from '../data/chargingOperatorsData';
+import { fetchCurrentOperatorPrices } from '../services/operatorPriceService';
+import { ChargingOperator } from '../types/chargingOperators';
 import {
   OperatorSortOption,
   OperatorFilterType,
@@ -30,6 +32,35 @@ export const ChargingOperatorsTab: React.FC<ChargingOperatorsTabProps> = ({
   vehicle,
   onSelectPlanForScenario,
 }) => {
+  // Dynamiska operatörspriser med timvis uppdatering
+  const [operators, setOperators] = useState<ChargingOperator[]>(SWEDISH_CHARGING_OPERATORS);
+
+  useEffect(() => {
+    fetchCurrentOperatorPrices().then((fresh) => {
+      if (fresh && fresh.length > 0) setOperators(fresh);
+    });
+
+    const interval = setInterval(() => {
+      fetchCurrentOperatorPrices().then((fresh) => {
+        if (fresh && fresh.length > 0) setOperators(fresh);
+      });
+    }, 3600000);
+
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') {
+        fetchCurrentOperatorPrices().then((fresh) => {
+          if (fresh && fresh.length > 0) setOperators(fresh);
+        });
+      }
+    };
+    document.addEventListener('visibilitychange', onVisible);
+
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', onVisible);
+    };
+  }, []);
+
   // Lokalt state för kalkylator och filter
   const [monthlyKwh, setMonthlyKwh] = useState<number>(100);
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -40,18 +71,18 @@ export const ChargingOperatorsTab: React.FC<ChargingOperatorsTabProps> = ({
   // Beräkna och sortera alla planer
   const calculatedCosts = useMemo(() => {
     return calculateAllPlanCosts(
-      SWEDISH_CHARGING_OPERATORS,
+      operators,
       monthlyKwh,
       sortOption,
       filterType,
       searchQuery
     );
-  }, [monthlyKwh, sortOption, filterType, searchQuery]);
+  }, [operators, monthlyKwh, sortOption, filterType, searchQuery]);
 
   // Filtrera operatörer för kortvyn
   const filteredOperators = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
-    return SWEDISH_CHARGING_OPERATORS.filter((op) => {
+    return operators.filter((op) => {
       // Sökning
       if (query) {
         const matchName = op.name.toLowerCase().includes(query);

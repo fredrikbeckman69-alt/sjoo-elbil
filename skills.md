@@ -54,3 +54,32 @@ Projektöversikt och riktlinjer för utveckling av applikationen för mätning o
 - **Kodstil:** Ren, modulär och väl dokumenterad kod.
 - **Linting & Formatering:** Kör linter och formaterare innan push till remote.
 - **Prestanda:** Minimera tunga bundles och optimera laddtider, särskilt för mobila nätverk.
+
+---
+
+## 5. Automatiserad Prisuppdatering & Cron-jobb (En gång i timmen)
+
+- **Frekvens & Schema:**
+  - Ett schemalagt cron-jobb ska köras **en gång i timmen** (`0 * * * *` / varje heltimme) för att kontinuerligt kontrollera, hämta och uppdatera marknadspriser.
+- **Krav & Omfattning:**
+  1. **Laddoperatörernas priser (kr/kWh):**
+     - Automatisk avstämning av aktuella snabbladdnings- (DC) och normalladdningstaxor (AC) hos samtliga svenska laddoperatörer:
+       - Tesla Supercharger (drop-in, medlemskap samt lågtrafikpriser)
+       - IONITY (drop-in samt Passport-avtal)
+       - Circle K (drop-in och EXTRA-rabatter)
+       - OKQ8 & Skellefteå Kraft
+       - Vattenfall InCharge
+       - Recharge (f.d. Fortum Charge & Drive)
+       - Mer Sweden (Statkraft)
+       - Virta, Uno-X, Eviny, E.ON Drive, Allego, Fastned, Elli och St1 / Shell Recharge
+     - Uppdaterade priser sparas till appens centrala datakälla (`public/data/operator_prices.json`) och cachas i applikationen.
+  2. **Bensinpriser (kr/liter):**
+     - Kontinuerlig avstämning av det svenska rikssnittet för Bensin 95 (E10) mot ledande drivmedelsbolags priser (Circle K, OKQ8, Preem, Ingo, St1).
+     - Uppdaterat bensinpris sparas till `public/data/fuel_prices.json` för att säkerställa att kalkylatorns jämförelse och besparingsberäkning mot bensinbil alltid är dagsfärsk.
+- **Arkitektur & Genomförande:**
+  - **Server/CI (GitHub Actions Workflow):**
+    - Konfigurerad i `.github/workflows/update-prices.yml` med schema `cron: '0 * * * *'` (en gång i timmen) och `workflow_dispatch` för manuell körning.
+    - Exekverar automatiserat prishämtningsskript (`scripts/fetch-prices.mjs`) som hämtar och validerar färska priser, uppdaterar JSON-filerna i `public/data/` och committar/deployar ändringarna automatiskt.
+  - **Klient/Applikation:**
+    - Appen läser in de senaste priserna vid uppstart (`fetchCurrentPetrolPrice()` och `fetchCurrentOperatorPrices()`).
+    - En aktiv bakgrundskontroll med en timmes intervall (`setInterval(..., 3600000)`) samt kontroll vid återkomst till fliken (`visibilitychange`) säkerställer att öppna sessioner automatiskt uppdateras med de senaste priserna.

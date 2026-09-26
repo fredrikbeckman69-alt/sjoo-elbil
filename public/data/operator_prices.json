@@ -1,0 +1,224 @@
+{
+  "updatedAt": "2026-09-26T15:03:44.495Z",
+  "source": "Svenska Laddoperatörer & Marknadspriser",
+  "operators": [
+    {
+      "id": "tesla-supercharger",
+      "name": "Tesla Supercharger",
+      "plans": [
+        {
+          "id": "tesla-non-member",
+          "priceDcKwh": 5.1,
+          "priceDcOffPeakKwh": 4.1,
+          "monthlyFee": 0
+        },
+        {
+          "id": "tesla-member",
+          "priceDcKwh": 3.65,
+          "priceDcOffPeakKwh": 2.95,
+          "monthlyFee": 115
+        }
+      ]
+    },
+    {
+      "id": "ionity",
+      "name": "IONITY",
+      "plans": [
+        {
+          "id": "ionity-direct",
+          "priceDcKwh": 6,
+          "monthlyFee": 0
+        },
+        {
+          "id": "ionity-passport-power",
+          "priceDcKwh": 3.42,
+          "monthlyFee": 79
+        }
+      ]
+    },
+    {
+      "id": "circle-k",
+      "name": "Circle K",
+      "plans": [
+        {
+          "id": "circlek-dropin",
+          "priceDcKwh": 6.09,
+          "priceAcKwh": 5.19,
+          "monthlyFee": 0
+        },
+        {
+          "id": "circlek-extra",
+          "priceDcKwh": 5.79,
+          "priceAcKwh": 4.89,
+          "monthlyFee": 0
+        }
+      ]
+    },
+    {
+      "id": "okq8",
+      "name": "OKQ8 & Skellefteå Kraft",
+      "plans": [
+        {
+          "id": "okq8-dropin",
+          "priceDcKwh": 5.69,
+          "priceAcKwh": 4.99,
+          "monthlyFee": 0
+        },
+        {
+          "id": "okq8-member",
+          "priceDcKwh": 5.49,
+          "priceAcKwh": 4.79,
+          "monthlyFee": 0
+        }
+      ]
+    },
+    {
+      "id": "incharge",
+      "name": "Vattenfall InCharge",
+      "plans": [
+        {
+          "id": "incharge-standard",
+          "priceDcKwh": 5.7,
+          "priceAcKwh": 4.5,
+          "monthlyFee": 0
+        }
+      ]
+    },
+    {
+      "id": "recharge",
+      "name": "Recharge (f.d. Fortum)",
+      "plans": [
+        {
+          "id": "recharge-standard",
+          "priceDcKwh": 6.29,
+          "priceAcKwh": 5.49,
+          "monthlyFee": 0
+        }
+      ]
+    },
+    {
+      "id": "mer-sweden",
+      "name": "Mer Sweden (Statkraft)",
+      "plans": [
+        {
+          "id": "mer-paygo",
+          "priceDcKwh": 5.6,
+          "priceAcKwh": 4.6,
+          "monthlyFee": 0
+        },
+        {
+          "id": "mer-around",
+          "priceDcKwh": 4.4,
+          "priceAcKwh": 3.4,
+          "monthlyFee": 149
+        }
+      ]
+    },
+    {
+      "id": "virta",
+      "name": "Virta",
+      "plans": [
+        {
+          "id": "virta-standard",
+          "priceDcKwh": 5.95,
+          "priceAcKwh": 4.5,
+          "monthlyFee": 0
+        }
+      ]
+    },
+    {
+      "id": "unox",
+      "name": "Uno-X",
+      "plans": [
+        {
+          "id": "unox-standard",
+          "priceDcKwh": 5.19,
+          "monthlyFee": 0
+        }
+      ]
+    },
+    {
+      "id": "eviny",
+      "name": "Eviny (Bilkraft)",
+      "plans": [
+        {
+          "id": "eviny-standard",
+          "priceDcKwh": 5.29,
+          "monthlyFee": 0
+        }
+      ]
+    },
+    {
+      "id": "eon-drive",
+      "name": "E.ON Drive",
+      "plans": [
+        {
+          "id": "eon-paygo",
+          "priceDcKwh": 5.95,
+          "priceAcKwh": 4.9,
+          "monthlyFee": 0
+        }
+      ]
+    },
+    {
+      "id": "allego",
+      "name": "Allego",
+      "plans": [
+        {
+          "id": "allego-standard",
+          "priceDcKwh": 6.5,
+          "monthlyFee": 0
+        }
+      ]
+    },
+    {
+      "id": "fastned",
+      "name": "Fastned",
+      "plans": [
+        {
+          "id": "fastned-standard",
+          "priceDcKwh": 6.49,
+          "monthlyFee": 0
+        },
+        {
+          "id": "fastned-gold",
+          "priceDcKwh": 4.54,
+          "monthlyFee": 130
+        }
+      ]
+    },
+    {
+      "id": "elli",
+      "name": "Elli (Volkswagen Group)",
+      "plans": [
+        {
+          "id": "elli-free",
+          "priceDcKwh": 5.9,
+          "monthlyFee": 0
+        }
+      ]
+    },
+    {
+      "id": "st1",
+      "name": "St1 / Shell Recharge",
+      "plans": [
+        {
+          "id": "st1-standard",
+          "priceDcKwh": 5.99,
+          "monthlyFee": 0
+        }
+      ]
+    },
+    {
+      "id": "preem",
+      "name": "Preem",
+      "plans": [
+        {
+          "id": "preem-standard",
+          "priceDcKwh": 5.69,
+          "monthlyFee": 0
+        }
+      ]
+    }
+  ]
+}

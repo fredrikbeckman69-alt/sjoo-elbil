@@ -4,7 +4,7 @@ import { RoadTripPlanner } from './components/RoadTripPlanner';
 import { TripConditionsSelector } from './components/TripConditions';
 import { OperatorRoutePlanner } from './components/OperatorRoutePlanner';
 import { RouteCalculator } from './components/RouteCalculator';
-import { RouteResult } from './services/routing';
+import { RouteResult, calculateRoute } from './services/routing';
 import { RoadTripChecklist } from './components/RoadTripChecklist';
 import { fetchCurrentPetrolPrice, FuelPriceData, DEFAULT_FUEL_PRICE } from './services/fuelPriceService';
 import { ScenarioComparison } from './components/ScenarioComparison';
@@ -151,6 +151,47 @@ export const App: React.FC = () => {
       loadDataFromDb(currentUser);
     }
   }, [currentUser, loadDataFromDb]);
+
+  // Timvis automatisk kontroll och uppdatering av bensinpriser
+  useEffect(() => {
+    const hourlyFuelCheck = () => {
+      fetchCurrentPetrolPrice().then((fresh) => {
+        setFuelPriceState(fresh);
+      });
+    };
+
+    const interval = setInterval(hourlyFuelCheck, 3600000); // En gång i timmen (3 600 000 ms)
+
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        hourlyFuelCheck();
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', handleVisibility);
+    };
+  }, []);
+
+  // Beräkna rutt automatiskt i bakgrunden så att ruttkoordinater och korridorer alltid finns tillgängliga
+  useEffect(() => {
+    if (!startAddress || !destAddress) return;
+    let isCancelled = false;
+    calculateRoute(startAddress, destAddress, waypoints)
+      .then((res) => {
+        if (!isCancelled && res) {
+          setRouteResultState(res);
+        }
+      })
+      .catch(() => {
+        // Ignorera fel vid automatisk bakgrundsuppslag
+      });
+    return () => {
+      isCancelled = true;
+    };
+  }, [startAddress, destAddress, waypoints]);
 
   const handleLoginSuccess = (account: UserAccount) => {
     const cleanedAccount: UserAccount = {
