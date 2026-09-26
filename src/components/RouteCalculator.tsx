@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { Navigation, MapPin, Search, Loader2, Clock, CheckCircle2, AlertCircle, ArrowRightLeft } from 'lucide-react';
-import { calculateRoute, RouteResult } from '../services/routing';
+import { Navigation, MapPin, Search, Loader2, Clock, CheckCircle2, AlertCircle, ArrowRightLeft, ArrowLeftRight } from 'lucide-react';
+import { calculateRoute, RouteResult, formatDuration } from '../services/routing';
 
 interface RouteCalculatorProps {
   distanceMil: number;
@@ -9,6 +9,8 @@ interface RouteCalculatorProps {
   onStartAddressChange: (val: string) => void;
   destAddress: string;
   onDestAddressChange: (val: string) => void;
+  isRoundTrip?: boolean;
+  onIsRoundTripChange?: (val: boolean) => void;
 }
 
 export const RouteCalculator: React.FC<RouteCalculatorProps> = ({
@@ -18,13 +20,18 @@ export const RouteCalculator: React.FC<RouteCalculatorProps> = ({
   onStartAddressChange,
   destAddress,
   onDestAddressChange,
+  isRoundTrip: propIsRoundTrip,
+  onIsRoundTripChange,
 }) => {
+  const [internalRoundTrip, setInternalRoundTrip] = useState<boolean>(false);
+  const isRoundTrip = propIsRoundTrip !== undefined ? propIsRoundTrip : internalRoundTrip;
+
   const [unitMode, setUnitMode] = useState<'mil' | 'km'>('mil');
   const [loading, setLoading] = useState(false);
   const [routeResult, setRouteResult] = useState<RouteResult | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  // Snabbval för typiska reslängder i mil
+  // Snabbval för typiska reslängder i mil (enkel resa som bas)
   const quickDistances = [
     { label: 'Dagspendling', mil: 2 },
     { label: 'Dagsutflykt', mil: 12 },
@@ -39,6 +46,28 @@ export const RouteCalculator: React.FC<RouteCalculatorProps> = ({
     { start: 'Uppsala', dest: 'Stockholm' },
   ];
 
+  const handleToggleRoundTrip = (targetRoundTrip: boolean) => {
+    if (targetRoundTrip === isRoundTrip) return;
+
+    if (onIsRoundTripChange) {
+      onIsRoundTripChange(targetRoundTrip);
+    } else {
+      setInternalRoundTrip(targetRoundTrip);
+    }
+
+    if (routeResult) {
+      const newDist = targetRoundTrip
+        ? Number((routeResult.distanceMil * 2).toFixed(2))
+        : routeResult.distanceMil;
+      onDistanceChange(newDist);
+    } else if (distanceMil > 0) {
+      const newDist = targetRoundTrip
+        ? Number((distanceMil * 2).toFixed(2))
+        : Number((distanceMil / 2).toFixed(2));
+      onDistanceChange(newDist);
+    }
+  };
+
   const handleSearchRoute = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     if (!startAddress.trim() || !destAddress.trim()) {
@@ -52,8 +81,9 @@ export const RouteCalculator: React.FC<RouteCalculatorProps> = ({
     try {
       const res = await calculateRoute(startAddress, destAddress);
       setRouteResult(res);
-      // Mata in den faktiska körsträckan i kalkylen
-      onDistanceChange(res.distanceMil);
+      // Mata in den faktiska körsträckan i kalkylen (dubblera om tur och retur)
+      const targetDist = isRoundTrip ? Number((res.distanceMil * 2).toFixed(2)) : res.distanceMil;
+      onDistanceChange(targetDist);
     } catch (err: any) {
       setError(err?.message || 'Ett fel uppstod vid beräkning av rutt. Kontrollera adresserna.');
     } finally {
@@ -82,7 +112,7 @@ export const RouteCalculator: React.FC<RouteCalculatorProps> = ({
   const displayedDistance = unitMode === 'mil' ? distanceMil : Number((distanceMil * 10).toFixed(1));
 
   return (
-    <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-5 sm:p-6 shadow-xl backdrop-blur-sm transition-all hover:border-slate-700/80">
+    <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-5 sm:p-6 shadow-xl backdrop-blur-sm transition-all hover:border-slate-700/80 overflow-hidden">
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2.5">
           <div className="p-2.5 rounded-xl bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">
@@ -159,28 +189,62 @@ export const RouteCalculator: React.FC<RouteCalculatorProps> = ({
             />
           </div>
 
-          <div className="pt-1 flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+          {/* Val för Enkel resa eller Tur och retur */}
+          <div className="pt-0.5">
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => handleToggleRoundTrip(false)}
+                className={`py-2 px-3 rounded-xl border text-xs font-semibold transition flex items-center justify-center gap-1.5 min-w-0 ${
+                  !isRoundTrip
+                    ? 'bg-slate-800 border-slate-600 text-white shadow-sm'
+                    : 'bg-slate-900/60 border-slate-800 text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
+                }`}
+              >
+                <span className="truncate">Enkel resa</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => handleToggleRoundTrip(true)}
+                className={`py-2 px-3 rounded-xl border text-xs font-semibold transition flex items-center justify-center gap-1.5 min-w-0 ${
+                  isRoundTrip
+                    ? 'bg-gradient-to-r from-cyan-500/20 to-emerald-500/20 border-cyan-500/60 text-cyan-300 shadow-sm shadow-cyan-500/10'
+                    : 'bg-slate-900/60 border-slate-800 text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
+                }`}
+              >
+                <ArrowLeftRight className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
+                <span className="truncate">Tur och retur (2x)</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Knapp för beräkning via OSRM */}
+          <div className="pt-1">
             <button
               type="submit"
               disabled={loading}
-              className="w-full sm:w-auto flex-1 flex items-center justify-center gap-2 bg-gradient-to-r from-cyan-500 to-emerald-500 hover:from-cyan-400 hover:to-emerald-400 text-slate-950 font-bold px-4 py-2.5 rounded-xl shadow-lg shadow-cyan-500/10 transition active:scale-[0.98] disabled:opacity-50"
+              className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-cyan-500 to-emerald-500 hover:from-cyan-400 hover:to-emerald-400 text-slate-950 font-bold px-4 py-2.5 rounded-xl shadow-lg shadow-cyan-500/10 transition active:scale-[0.98] disabled:opacity-50 text-sm"
             >
               {loading ? (
                 <>
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  <span>Beräknar rutt & köravstånd...</span>
+                  <Loader2 className="w-4 h-4 animate-spin shrink-0" />
+                  <span className="truncate">Beräknar rutt & köravstånd...</span>
                 </>
               ) : (
                 <>
-                  <Search className="w-4 h-4" />
+                  <Search className="w-4 h-4 shrink-0" />
                   <span>Beräkna rutt via OSRM</span>
                 </>
               )}
             </button>
+          </div>
 
-            {/* Quick route suggestions */}
-            <div className="hidden md:flex items-center gap-1.5 text-xs">
-              <span className="text-slate-400 text-[11px]">Förslag:</span>
+          {/* Quick route suggestions - Jämnstora rutor som inte hamnar utanför */}
+          <div className="pt-2 border-t border-slate-800/60">
+            <span className="block text-[11px] font-medium text-slate-400 mb-1.5">
+              Förslag på vanliga rutter:
+            </span>
+            <div className="grid grid-cols-3 gap-2">
               {exampleRoutes.map((ex, idx) => (
                 <button
                   key={idx}
@@ -189,9 +253,12 @@ export const RouteCalculator: React.FC<RouteCalculatorProps> = ({
                     onStartAddressChange(ex.start);
                     onDestAddressChange(ex.dest);
                   }}
-                  className="px-2 py-1 rounded-md bg-slate-800/80 hover:bg-slate-700 text-slate-300 text-[11px] border border-slate-700 transition"
+                  className="px-2 py-2 rounded-xl bg-slate-900 hover:bg-slate-800/90 text-slate-300 hover:text-white text-[11px] font-medium border border-slate-800 hover:border-slate-700 transition flex flex-col sm:flex-row items-center justify-center gap-1 w-full text-center shadow-sm min-w-0"
+                  title={`${ex.start} till ${ex.dest}`}
                 >
-                  {ex.start} ➔ {ex.dest}
+                  <span className="truncate">{ex.start}</span>
+                  <span className="text-cyan-400 text-[10px] shrink-0">➔</span>
+                  <span className="truncate">{ex.dest}</span>
                 </button>
               ))}
             </div>
@@ -210,21 +277,36 @@ export const RouteCalculator: React.FC<RouteCalculatorProps> = ({
       {/* Route Success Banner */}
       {routeResult && (
         <div className="mb-4 p-3.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-slate-200 text-xs flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 min-w-0">
             <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-            <div>
-              <span className="font-semibold text-emerald-300">Rutt beräknad: </span>
-              <span>{routeResult.startPlace} ➔ {routeResult.destPlace}</span>
+            <div className="truncate">
+              <span className="font-semibold text-emerald-300">
+                Rutt beräknad{isRoundTrip ? ' (Tur & retur)' : ''}:{' '}
+              </span>
+              <span>
+                {routeResult.startPlace} {isRoundTrip ? '⇄' : '➔'} {routeResult.destPlace}
+              </span>
             </div>
           </div>
-          <div className="flex items-center gap-4 text-slate-300">
+          <div className="flex items-center gap-3 text-slate-300 shrink-0">
             <div className="flex items-center gap-1 font-mono-numbers font-bold text-white">
-              <span>{routeResult.distanceMil} mil</span>
-              <span className="text-slate-400 font-normal">({routeResult.distanceKm} km)</span>
+              <span>{isRoundTrip ? Number((routeResult.distanceMil * 2).toFixed(1)) : routeResult.distanceMil} mil</span>
+              <span className="text-slate-400 font-normal">
+                ({isRoundTrip ? Math.round(routeResult.distanceKm * 2) : routeResult.distanceKm} km)
+              </span>
+              {isRoundTrip && (
+                <span className="text-[10px] text-cyan-300/90 font-normal ml-1">
+                  (Enkel: {routeResult.distanceMil} mil)
+                </span>
+              )}
             </div>
             <div className="flex items-center gap-1 text-cyan-300">
-              <Clock className="w-3.5 h-3.5" />
-              <span>{routeResult.durationText}</span>
+              <Clock className="w-3.5 h-3.5 shrink-0" />
+              <span>
+                {isRoundTrip
+                  ? `${formatDuration(routeResult.durationSeconds * 2)} (t&r)`
+                  : routeResult.durationText}
+              </span>
             </div>
           </div>
         </div>
@@ -232,52 +314,70 @@ export const RouteCalculator: React.FC<RouteCalculatorProps> = ({
 
       {/* Manual Distance Control */}
       <div className="border-t border-slate-800/80 pt-4">
-        <label className="block text-xs font-medium text-slate-400 mb-1.5">
-          Aktiv planerad körsträcka ({unitMode})
-        </label>
+        <div className="flex items-center justify-between mb-1.5">
+          <label className="block text-xs font-medium text-slate-400">
+            Aktiv planerad körsträcka ({unitMode})
+          </label>
+          {isRoundTrip && (
+            <span className="text-[10px] font-semibold text-cyan-400 bg-cyan-500/10 px-2 py-0.5 rounded-full border border-cyan-500/20">
+              Tur & retur aktivt (2x)
+            </span>
+          )}
+        </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
-          <div className="bg-slate-950/70 border border-slate-800 rounded-xl p-3 flex items-center gap-2">
+          <div className="bg-slate-950/70 border border-slate-800 rounded-xl p-3 flex items-center gap-2 min-w-0">
             <input
               type="text"
               inputMode="decimal"
               pattern="[0-9]*[.,]?[0-9]*"
               value={displayedDistance || ''}
               onChange={(e) => handleManualDistanceChange(e.target.value)}
-              className="w-full bg-transparent text-2xl font-black text-white focus:outline-none font-mono-numbers"
+              className="w-full bg-transparent text-2xl font-black text-white focus:outline-none font-mono-numbers min-w-0"
               placeholder={unitMode === 'mil' ? '25' : '250'}
             />
-            <span className="text-xs font-bold text-cyan-400 bg-cyan-500/10 px-2 py-1 rounded-md border border-cyan-500/20">
+            <span className="text-xs font-bold text-cyan-400 bg-cyan-500/10 px-2 py-1 rounded-md border border-cyan-500/20 shrink-0">
               {unitMode}
             </span>
           </div>
 
-          <div className="bg-slate-950/40 border border-slate-800/80 rounded-xl p-3 flex items-center justify-between">
-            <span className="text-xs text-slate-400">Motsvarar:</span>
-            <div className="text-right">
-              <div className="text-sm font-bold text-white font-mono-numbers">
+          <div className="bg-slate-950/40 border border-slate-800/80 rounded-xl p-3 flex items-center justify-between min-w-0">
+            <span className="text-xs text-slate-400 shrink-0">Motsvarar:</span>
+            <div className="text-right min-w-0">
+              <div className="text-sm font-bold text-white font-mono-numbers truncate">
                 {unitMode === 'mil' ? `${Math.round(distanceMil * 10)} km` : `${(distanceMil).toFixed(1)} mil`}
               </div>
-              <div className="text-[10px] text-slate-400 font-medium">1 mil = 10 km</div>
+              <div className="text-[10px] text-slate-400 font-medium truncate">
+                {isRoundTrip
+                  ? `Varav enkel resa: ${isRoundTrip ? (displayedDistance / 2).toFixed(1) : displayedDistance} ${unitMode}`
+                  : '1 mil = 10 km'}
+              </div>
             </div>
           </div>
         </div>
 
-        {/* Quick distance buttons */}
-        <div className="flex flex-wrap gap-2">
-          {quickDistances.map((item) => (
-            <button
-              key={item.mil}
-              type="button"
-              onClick={() => onDistanceChange(item.mil)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition ${
-                Math.abs(distanceMil - item.mil) < 0.1
-                  ? 'bg-cyan-500/20 text-cyan-300 border-cyan-500/50'
-                  : 'bg-slate-800/40 text-slate-400 hover:text-slate-200 border-slate-800 hover:bg-slate-800'
-              }`}
-            >
-              {item.label} ({item.mil} mil)
-            </button>
-          ))}
+        {/* Quick distance buttons - Jämnstora rutor med grid */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+          {quickDistances.map((item) => {
+            const effectiveMil = isRoundTrip ? item.mil * 2 : item.mil;
+            const isSelected = Math.abs(distanceMil - effectiveMil) < 0.1;
+            return (
+              <button
+                key={item.mil}
+                type="button"
+                onClick={() => onDistanceChange(effectiveMil)}
+                className={`px-2.5 py-2 rounded-xl text-xs font-medium border transition text-center flex flex-col items-center justify-center min-w-0 ${
+                  isSelected
+                    ? 'bg-cyan-500/20 text-cyan-300 border-cyan-500/50 shadow-sm'
+                    : 'bg-slate-800/40 text-slate-400 hover:text-slate-200 border-slate-800 hover:bg-slate-800'
+                }`}
+              >
+                <span className="truncate font-semibold">{item.label}</span>
+                <span className="text-[11px] font-mono-numbers text-slate-400">
+                  {effectiveMil} mil{isRoundTrip ? ' (t&r)' : ''}
+                </span>
+              </button>
+            );
+          })}
         </div>
       </div>
     </div>

@@ -1,27 +1,24 @@
 import { ChargingStation } from '../types';
+import swedenChargersData from '../data/sweden_chargers.json';
 
-let cachedStations: ChargingStation[] | null = null;
+const defaultStations: ChargingStation[] = swedenChargersData as unknown as ChargingStation[];
+let cachedStations: ChargingStation[] = defaultStations;
 
 /**
  * Hämtar Sveriges alla laddstationer från den lokala optimerade datamängden.
  */
 export async function getChargingStations(): Promise<ChargingStation[]> {
-  if (cachedStations) {
+  if (cachedStations && cachedStations.length > 0) {
     return cachedStations;
   }
+  return defaultStations;
+}
 
-  try {
-    const res = await fetch('/data/sweden_chargers.json');
-    if (!res.ok) {
-      throw new Error(`Kunde inte läsa laddstationsdata (HTTP ${res.status})`);
-    }
-    const data: ChargingStation[] = await res.json();
-    cachedStations = data;
-    return data;
-  } catch (err) {
-    console.error('Fel vid inläsning av laddstationer:', err);
-    throw err;
-  }
+/**
+ * Returnerar stationer synkront för omedelbar rendering utan väntetid
+ */
+export function getInitialChargingStations(): ChargingStation[] {
+  return defaultStations;
 }
 
 export interface OperatorCount {

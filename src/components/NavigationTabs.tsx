@@ -15,7 +15,7 @@ export const NavigationTabs: React.FC<NavigationTabsProps> = ({
   activeTab,
   onTabChange,
   operatorsCount = 15,
-  stationsCount = 4485,
+  stationsCount = 3972,
   activeVehicleName: _activeVehicleName,
 }) => {
   return (

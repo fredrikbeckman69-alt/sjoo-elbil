@@ -7,9 +7,10 @@ import carImage from '../assets/bil.jpg';
 interface HeaderHeroProps {
   vehicle: VehicleProfile;
   tripDistanceMil: number;
+  isRoundTrip?: boolean;
 }
 
-export const HeaderHero: React.FC<HeaderHeroProps> = ({ vehicle, tripDistanceMil }) => {
+export const HeaderHero: React.FC<HeaderHeroProps> = ({ vehicle, tripDistanceMil, isRoundTrip }) => {
   const kwhPerMil = kwhPer100KmToKwhPerMil(vehicle.consumptionKwhPer100Km);
   const { rangeKm, rangeMil } = calculateRange(vehicle.batteryCapacityKwh, vehicle.consumptionKwhPer100Km);
 
@@ -80,8 +81,13 @@ export const HeaderHero: React.FC<HeaderHeroProps> = ({ vehicle, tripDistanceMil
       <div className="bg-slate-900/95 border-t border-slate-800 px-5 py-3 flex flex-wrap items-center justify-between gap-3 text-xs text-slate-400">
         <div className="flex items-center gap-2">
           <span className="text-slate-200 font-medium">Aktiv resekalkyl:</span>
-          <span className="px-2.5 py-0.5 rounded-lg bg-emerald-500/10 text-emerald-400 font-bold border border-emerald-500/20 font-mono-numbers">
-            {tripDistanceMil} mil ({Math.round(tripDistanceMil * 10)} km)
+          <span className="px-2.5 py-0.5 rounded-lg bg-emerald-500/10 text-emerald-400 font-bold border border-emerald-500/20 font-mono-numbers flex items-center gap-1.5">
+            <span>{tripDistanceMil} mil ({Math.round(tripDistanceMil * 10)} km)</span>
+            {isRoundTrip && (
+              <span className="text-[10px] font-semibold text-cyan-300 bg-cyan-500/20 px-1.5 py-0.5 rounded border border-cyan-500/30">
+                Tur & retur
+              </span>
+            )}
           </span>
         </div>
         <div className="text-slate-400 flex items-center gap-3">

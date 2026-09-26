@@ -61,11 +61,12 @@ export const App: React.FC = () => {
   const [checklist, setChecklistState] = useState<ChecklistItem[]>(DEFAULT_CHECKLIST);
   const [fuelPrice, setFuelPriceState] = useState<FuelPriceData>(DEFAULT_FUEL_PRICE);
   const [activeTab, setActiveTabState] = useState<AppTab>('calculator');
+  const [isRoundTrip, setIsRoundTripState] = useState<boolean>(false);
 
   // Ladda data från IndexedDB vid start
   const loadDataFromDb = useCallback(async () => {
     try {
-      const [v, sc, tDist, mDist, sAddr, dAddr, trList, cond, chk, tab, cachedFuel] = await Promise.all([
+      const [v, sc, tDist, mDist, sAddr, dAddr, trList, cond, chk, tab, cachedFuel, roundTrip] = await Promise.all([
         getActiveVehicle(),
         getScenarios(),
         getSetting<number>('tripDistanceMil', 42),
@@ -77,6 +78,7 @@ export const App: React.FC = () => {
         getSetting<ChecklistItem[]>('tripChecklist', DEFAULT_CHECKLIST),
         getSetting<AppTab>('activeTab', 'calculator'),
         getSetting<FuelPriceData>('petrolPriceData', DEFAULT_FUEL_PRICE),
+        getSetting<boolean>('isRoundTrip', false),
       ]);
 
       setVehicleState(v);
@@ -90,6 +92,7 @@ export const App: React.FC = () => {
       setChecklistState(chk);
       if (tab) setActiveTabState(tab);
       if (cachedFuel) setFuelPriceState(cachedFuel);
+      if (typeof roundTrip === 'boolean') setIsRoundTripState(roundTrip);
 
       // Hämta färskt bensinpris asynkront och spara
       fetchCurrentPetrolPrice().then((fresh) => {
@@ -151,14 +154,21 @@ export const App: React.FC = () => {
     setSetting('tripChecklist', updated);
   };
 
+  // Växla enkel resa / tur och retur
+  const handleRoundTripChange = (roundTrip: boolean) => {
+    setIsRoundTripState(roundTrip);
+    setSetting('isRoundTrip', roundTrip);
+  };
+
   // Snabbval av svensk långresa
   const handleSelectRoutePreset = (start: string, dest: string, distanceMil: number) => {
     setStartAddressState(start);
     setDestAddressState(dest);
-    setTripDistanceMilState(distanceMil);
+    const finalDist = isRoundTrip ? distanceMil * 2 : distanceMil;
+    setTripDistanceMilState(finalDist);
     setSetting('startAddress', start);
     setSetting('destAddress', dest);
-    setSetting('tripDistanceMil', distanceMil);
+    setSetting('tripDistanceMil', finalDist);
   };
 
   // Hantera sparade resor i IndexedDB
@@ -283,7 +293,7 @@ export const App: React.FC = () => {
           activeTab={activeTab}
           onTabChange={handleTabChange}
           operatorsCount={15}
-          stationsCount={4485}
+          stationsCount={3972}
           activeVehicleName={vehicle.name}
         />
 
@@ -309,7 +319,7 @@ export const App: React.FC = () => {
           /* Flik: Elbilskalkylator Pro */
           <>
             {/* 1. Header & Hero with car image */}
-            <HeaderHero vehicle={vehicle} tripDistanceMil={tripDistanceMil} />
+            <HeaderHero vehicle={vehicle} tripDistanceMil={tripDistanceMil} isRoundTrip={isRoundTrip} />
 
 
         {/* 2. Occasional Driver Road Trip Assistant */}
@@ -339,6 +349,8 @@ export const App: React.FC = () => {
             onStartAddressChange={handleStartAddressChange}
             destAddress={destAddress}
             onDestAddressChange={handleDestAddressChange}
+            isRoundTrip={isRoundTrip}
+            onIsRoundTripChange={handleRoundTripChange}
           />
         </div>
 
@@ -370,6 +382,7 @@ export const App: React.FC = () => {
           onLoadTrip={handleLoadTrip}
           onDeleteTrip={handleDeleteTrip}
           onClearAllTrips={handleClearAllTrips}
+          isRoundTrip={isRoundTrip}
         />
 
         {/* 8. Scenario & Price Comparison */}

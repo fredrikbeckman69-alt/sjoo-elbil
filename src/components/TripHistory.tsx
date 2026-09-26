@@ -15,6 +15,7 @@ interface TripHistoryProps {
   onLoadTrip: (trip: SavedTrip) => void;
   onDeleteTrip: (id: string) => void;
   onClearAllTrips: () => void;
+  isRoundTrip?: boolean;
 }
 
 export const TripHistory: React.FC<TripHistoryProps> = ({
@@ -29,6 +30,7 @@ export const TripHistory: React.FC<TripHistoryProps> = ({
   onLoadTrip,
   onDeleteTrip,
   onClearAllTrips,
+  isRoundTrip,
 }) => {
   const [justSaved, setJustSaved] = useState(false);
 
@@ -38,10 +40,14 @@ export const TripHistory: React.FC<TripHistoryProps> = ({
   const energyUsedKwh = Number((distanceMil * kwhPerMil).toFixed(1));
 
   const handleSave = () => {
+    const title = isRoundTrip
+      ? `${startAddress || 'Start'} ⇄ ${destAddress || 'Destination'} (T&R)`
+      : `${startAddress || 'Start'} till ${destAddress || 'Destination'}`;
+
     const newTrip: SavedTrip = {
       id: `trip-${Date.now()}`,
       createdAt: new Date().toISOString(),
-      title: `${startAddress || 'Start'} till ${destAddress || 'Destination'}`,
+      title,
       startAddress: startAddress || 'Startadress',
       destAddress: destAddress || 'Destinationsadress',
       distanceMil,

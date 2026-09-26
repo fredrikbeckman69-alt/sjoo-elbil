@@ -15,6 +15,7 @@ import {
 import { ChargingStation } from '../types';
 import {
   getChargingStations,
+  getInitialChargingStations,
   getOperatorStats,
   getOperatorColor,
   POPULAR_OPERATORS,
@@ -25,8 +26,8 @@ interface ChargingMapProps {
 }
 
 export const ChargingMap: React.FC<ChargingMapProps> = ({ onSelectStationAsDestination }) => {
-  const [stations, setStations] = useState<ChargingStation[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [stations, setStations] = useState<ChargingStation[]>(getInitialChargingStations());
+  const loading = stations.length === 0;
   const [error, setError] = useState<string | null>(null);
 
   // Filters
@@ -42,24 +43,23 @@ export const ChargingMap: React.FC<ChargingMapProps> = ({ onSelectStationAsDesti
   const tileLayerRef = useRef<L.TileLayer | null>(null);
   const canvasRendererRef = useRef<L.Canvas | null>(null);
 
-  // Load charging stations data
+  // Load charging stations data (sync and fallback)
   useEffect(() => {
     let isMounted = true;
     async function loadData() {
       try {
-        setLoading(true);
         const data = await getChargingStations();
-        if (isMounted) {
+        if (isMounted && data && data.length > 0) {
           setStations(data);
           setError(null);
         }
       } catch (err: any) {
         if (isMounted) {
-          setError(err.message || 'Kunde inte läsa in laddstationsdata.');
-        }
-      } finally {
-        if (isMounted) {
-          setLoading(false);
+          console.warn('Laddstationsfel:', err);
+          // If already populated with initial stations, don't show error
+          if (stations.length === 0) {
+            setError(err.message || 'Kunde inte läsa in laddstationsdata.');
+          }
         }
       }
     }
@@ -67,7 +67,7 @@ export const ChargingMap: React.FC<ChargingMapProps> = ({ onSelectStationAsDesti
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [stations.length]);
 
   // Compute operator statistics
   const operatorStats = useMemo(() => {
@@ -127,13 +127,16 @@ export const ChargingMap: React.FC<ChargingMapProps> = ({ onSelectStationAsDesti
     const layerGroup = L.layerGroup().addTo(map);
     layerGroupRef.current = layerGroup;
 
-    // Tile layer
-    const darkTileUrl = 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png';
-    const tileLayer = L.tileLayer(darkTileUrl, {
+    // Tile layer: OpenStreetMap (clean, crisp, no watermarks)
+    const tileLayer = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
       maxZoom: 19,
-      subdomains: 'abcd',
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
     }).addTo(map);
     tileLayerRef.current = tileLayer;
+
+    if (mapContainerRef.current) {
+      mapContainerRef.current.classList.add('dark-map-tiles');
+    }
 
     mapInstanceRef.current = map;
 
@@ -143,16 +146,14 @@ export const ChargingMap: React.FC<ChargingMapProps> = ({ onSelectStationAsDesti
     };
   }, []);
 
-  // Update tile layer when theme changes
+  // Update map dark/light theme class
   useEffect(() => {
-    if (!tileLayerRef.current || !mapInstanceRef.current) return;
-
-    const url =
-      tileTheme === 'dark'
-        ? 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png'
-        : 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png';
-
-    tileLayerRef.current.setUrl(url);
+    if (!mapContainerRef.current) return;
+    if (tileTheme === 'dark') {
+      mapContainerRef.current.classList.add('dark-map-tiles');
+    } else {
+      mapContainerRef.current.classList.remove('dark-map-tiles');
+    }
   }, [tileTheme]);
 
   // Render markers on the map
