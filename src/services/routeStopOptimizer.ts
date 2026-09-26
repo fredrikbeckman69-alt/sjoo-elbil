@@ -261,6 +261,7 @@ export function findOptimalChargingStopsAlongRoute(params: {
   let currentMilestone = 0;
   let currentRangeMil = initialRangeMil;
   let remainingMil = totalDistanceMil;
+  let currentBatteryPercent = startBatteryPercent;
 
   const carMaxChargePowerKw = batteryCap <= 60 ? 135 : 175;
 
@@ -303,23 +304,54 @@ export function findOptimalChargingStopsAlongRoute(params: {
       ? chosenStation.milestoneMil
       : Number(Math.min(idealMilestone, currentMilestone + currentRangeMil * 0.85).toFixed(1));
 
-    const distanceDrivenSinceLast = stopMilestone - currentMilestone;
-    const energyUsed = distanceDrivenSinceLast * effectiveKwhPerMil;
-    const arrivalPercent = Math.max(10, Math.round(100 - (energyUsed / batteryCap) * 100));
+    // Förhindra oändlig loop eller stopp bakåt/på samma plats
+    if (stopMilestone <= currentMilestone + 0.5) {
+      break;
+    }
 
+    // Körsträcka sedan förra stoppet (eller start)
+    const distanceDrivenSinceLast = stopMilestone - currentMilestone;
+    const energyUsedKwh = distanceDrivenSinceLast * effectiveKwhPerMil;
+    const batteryPercentUsed = (energyUsedKwh / batteryCap) * 100;
+    const arrivalPercent = Math.max(5, Math.round(currentBatteryPercent - batteryPercentUsed));
+
+    // Avstånd och energibehov kvar till slutdestinationen
     const distanceToDest = totalDistanceMil - stopMilestone;
-    const energyToDest = distanceToDest * effectiveKwhPerMil + bufferEnergyKwh;
-    const targetDeparturePercent = distanceToDest <= rangeOn80Percent ? Math.min(85, Math.ceil((energyToDest / batteryCap) * 100)) : 80;
-    const kwhToCharge = Number((((targetDeparturePercent - arrivalPercent) / 100) * batteryCap).toFixed(1));
+    const energyNeededToDestKwh = distanceToDest * effectiveKwhPerMil + bufferEnergyKwh;
+    const batteryPercentNeededToDest = Math.ceil((energyNeededToDestKwh / batteryCap) * 100);
+
+    // Om bilen vid ankomst redan har tillräckligt med batteri för att nå målet med marginal behövs inget laddstopp här!
+    if (arrivalPercent >= batteryPercentNeededToDest) {
+      break;
+    }
+
+    // Beräkna målavreseprocent: ladda ALLTID till en nivå högre än ankomstprocenten
+    let targetDeparturePercent: number;
+    if (distanceToDest <= rangeOn80Percent) {
+      // Sista etappen till målet: ladda precis vad som behövs plus marginal (minst +10%)
+      targetDeparturePercent = Math.min(85, Math.max(arrivalPercent + 10, batteryPercentNeededToDest + 5));
+    } else {
+      // Långt kvar: ladda upp mot 80% (minst +15% över ankomstprocenten)
+      targetDeparturePercent = Math.min(85, Math.max(80, arrivalPercent + 15));
+    }
+
+    // Säkerställ strikt att avreseprocenten alltid är större än ankomstprocenten (minst 5% laddning)
+    if (targetDeparturePercent <= arrivalPercent) {
+      targetDeparturePercent = Math.min(85, arrivalPercent + 10);
+    }
+
+    // kWh som laddas: ALDRIG negativt
+    const kwhToCharge = Number(Math.max(0, (((targetDeparturePercent - arrivalPercent) / 100) * batteryCap)).toFixed(1));
+
+    // Kostnad: ALDRIG negativ! En laddning kan aldrig resultera i en minuskostnad
+    const costSek = kwhToCharge > 0 ? Math.max(0, Number((kwhToCharge * pricePerKwh + sessionFee).toFixed(0))) : 0;
 
     const stationPower = chosenStation
       ? getOperatorDefaultPowerKw(operatorId, chosenStation.station)
       : (operatorId === 'ionity' ? 350 : operatorId === 'tesla-supercharger' ? 250 : 150);
 
     const effectiveChargeKw = Math.min(carMaxChargePowerKw, stationPower) * 0.78;
-    const chargingTimeMinutes = Math.max(12, Math.round((kwhToCharge / effectiveChargeKw) * 60) + 4);
-
-    const costSek = Number((kwhToCharge * pricePerKwh + sessionFee).toFixed(0));
+    const chargingTimeMinutes = Math.max(10, Math.round((kwhToCharge / effectiveChargeKw) * 60) + 3);
 
     // Fastställ station, fysisk adress och plats
     let stationObj: ChargingStation;
@@ -400,8 +432,10 @@ export function findOptimalChargingStopsAlongRoute(params: {
       coordinates: stopCoords,
     });
 
+    currentBatteryPercent = targetDeparturePercent;
     currentMilestone = stopMilestone;
-    currentRangeMil = Number(((targetDeparturePercent / 100) * batteryCap / effectiveKwhPerMil).toFixed(1)) - (bufferEnergyKwh / effectiveKwhPerMil);
+    const usableBatteryPercentAfterStop = Math.max(0, targetDeparturePercent - targetArrivalBufferPercent);
+    currentRangeMil = Number(((usableBatteryPercentAfterStop / 100) * batteryCap / effectiveKwhPerMil).toFixed(1));
     remainingMil = totalDistanceMil - currentMilestone;
   }
 

@@ -495,26 +495,26 @@ export const OperatorRoutePlanner: React.FC<OperatorRoutePlannerProps> = ({
 
                         {/* Fysisk adress & Milstolpe */}
                         <div className="mt-1.5 space-y-1 text-xs">
-                          {/* Fysisk adress med tydlig markör och kartlänk */}
-                          <div className="flex items-start gap-1.5 text-slate-200">
-                            <MapPin className="w-3.5 h-3.5 text-rose-400 shrink-0 mt-0.5" />
+                          {/* Fysisk adress - helt klickbar till Google Maps */}
+                          <a
+                            href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent((stop.address || stop.streetAndCity) + ' ' + stop.station.name)}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="group flex items-start gap-1.5 text-slate-200 hover:text-cyan-300 transition-colors p-1.5 -ml-1 rounded-lg hover:bg-slate-900/90 border border-transparent hover:border-slate-700/80 cursor-pointer"
+                            title="Klicka för att öppna adressen i Google Maps"
+                          >
+                            <MapPin className="w-3.5 h-3.5 text-rose-400 group-hover:text-rose-300 group-hover:scale-110 transition-transform shrink-0 mt-0.5" />
                             <div className="min-w-0 flex-1">
-                              <span className="text-slate-400 text-[11px] font-medium mr-1.5">Fysisk adress:</span>
-                              <span className="font-semibold text-white selection:bg-rose-500/30 break-words">
+                              <span className="text-slate-400 text-[11px] font-medium mr-1.5 group-hover:text-slate-300">Fysisk adress:</span>
+                              <span className="font-semibold text-white group-hover:text-cyan-300 underline decoration-slate-600 group-hover:decoration-cyan-400 underline-offset-2 break-words transition-colors">
                                 {stop.address || stop.streetAndCity}
                               </span>
                             </div>
-                            <a
-                              href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent((stop.address || stop.streetAndCity) + ' ' + stop.station.name)}`}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-[10px] text-cyan-400 hover:text-cyan-300 hover:underline flex items-center gap-0.5 shrink-0 bg-slate-900 border border-slate-700/80 px-2 py-0.5 rounded-md transition shadow-xs"
-                              title="Öppna fysisk adress i karta"
-                            >
-                              <span>Karta</span>
+                            <span className="text-[10px] text-cyan-400 group-hover:text-cyan-200 bg-cyan-950/60 border border-cyan-800/60 group-hover:border-cyan-500/60 px-2 py-0.5 rounded-md flex items-center gap-1 shrink-0 font-medium transition shadow-xs">
+                              <span>Google Maps</span>
                               <ExternalLink className="w-2.5 h-2.5" />
-                            </a>
-                          </div>
+                            </span>
+                          </a>
 
                           {/* Milstolpe längs färdvägen */}
                           <div className="flex items-center gap-2 text-[11px] text-slate-400 pl-5">
