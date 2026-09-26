@@ -34,7 +34,18 @@ function vehicleApiPlugin(): Plugin {
           (err, stdout) => {
             res.setHeader('Content-Type', 'application/json; charset=utf-8');
 
-            if (err || !stdout || stdout.length < 500 || stdout.includes('404 Not Found') || stdout.includes('Kunde inte hitta')) {
+            const isNotFound =
+              err ||
+              !stdout ||
+              stdout.length < 500 ||
+              stdout.includes('404 Not Found') ||
+              stdout.includes('Kunde inte hitta') ||
+              stdout.includes('hittades inte') ||
+              stdout.includes('Hittades inte') ||
+              stdout.includes('Du har sökt efter ett registreringsnummer som inte finns') ||
+              (stdout.includes('<title>Sök Regnr') && !stdout.includes(`>${regnr}<`));
+
+            if (isNotFound) {
               res.statusCode = 404;
               return res.end(JSON.stringify({ error: `Fordonet ${regnr} hittades inte i offentliga register.` }));
             }

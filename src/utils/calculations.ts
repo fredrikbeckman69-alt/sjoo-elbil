@@ -88,12 +88,12 @@ export const DEFAULT_SCENARIOS: ChargingScenario[] = [
   },
 ];
 
-// Benchmark för referens mot bensinbil
+// Benchmark för referens mot bensinbil (uppdateras dynamiskt i appen)
 export const PETROL_BENCHMARK = {
   litersPerMil: 0.65,
-  pricePerLiter: 19.20,
+  pricePerLiter: 17.69, // Aktuellt svenskt genomsnittligt bensinpris
   get costPerMil() {
-    return this.litersPerMil * this.pricePerLiter; // ~12.48 kr/mil
+    return Number((this.litersPerMil * this.pricePerLiter).toFixed(2)); // ~11.50 kr/mil vid 17,69 kr
   }
 };
 
@@ -152,7 +152,8 @@ export function calculateRoadTripAnalysis(
   startBatteryPercent: number = 100,
   arrivalBufferPercent: number = 15,
   homePricePerKwh: number = 1.15,
-  fastPricePerKwh: number = 4.95
+  fastPricePerKwh: number = 4.95,
+  petrolPricePerLiter: number = PETROL_BENCHMARK.pricePerLiter
 ): RoadTripAnalysis {
   const { effectiveKwhPer100Km } = calculateEffectiveConsumption(baseConsumptionKwhPer100Km, conditions);
   const effectiveKwhPerMil = kwhPer100KmToKwhPerMil(effectiveKwhPer100Km);
@@ -200,8 +201,9 @@ export function calculateRoadTripAnalysis(
   // Jämförelse: Om man mot förmodan skulle snabbladda 100%
   const cost100PercentFast = Number((energyNeededKwh * fastPricePerKwh).toFixed(0));
 
-  // Bensinreferens
-  const petrolCost = Number((distanceMil * PETROL_BENCHMARK.costPerMil).toFixed(0));
+  // Bensinreferens baserad på aktuellt genomsnittligt bensinpris
+  const petrolCostPerMil = Number((PETROL_BENCHMARK.litersPerMil * petrolPricePerLiter).toFixed(2));
+  const petrolCost = Number((distanceMil * petrolCostPerMil).toFixed(0));
   const savingsVsPetrol = Number(Math.max(0, petrolCost - realisticCost).toFixed(0));
 
   return {
@@ -230,7 +232,8 @@ export function calculateScenarioResults(
   scenarios: ChargingScenario[],
   consumptionKwhPer100Km: number,
   tripDistanceMil: number,
-  monthlyDistanceMil: number
+  monthlyDistanceMil: number,
+  petrolPricePerLiter: number = PETROL_BENCHMARK.pricePerLiter
 ): {
   results: ScenarioResult[];
   cheapestTripId: string;
@@ -241,8 +244,9 @@ export function calculateScenarioResults(
   const energyNeededTripKwh = Number((tripDistanceMil * kwhPerMil).toFixed(2));
   const monthlyEnergyKwh = monthlyDistanceMil * kwhPerMil;
 
-  const petrolTripCost = tripDistanceMil * PETROL_BENCHMARK.costPerMil;
-  const petrolMonthlyCost = monthlyDistanceMil * PETROL_BENCHMARK.costPerMil;
+  const petrolCostPerMil = Number((PETROL_BENCHMARK.litersPerMil * petrolPricePerLiter).toFixed(2));
+  const petrolTripCost = tripDistanceMil * petrolCostPerMil;
+  const petrolMonthlyCost = monthlyDistanceMil * petrolCostPerMil;
 
   const results: ScenarioResult[] = scenarios.map((scenario) => {
     // Kostnad enbart för körning per mil

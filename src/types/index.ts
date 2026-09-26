@@ -177,3 +177,19 @@ export interface VehicleRegistryData {
   fetchedAt?: string;
 }
 
+export type AppTab = 'calculator' | 'charging-map';
+
+export interface ChargingStation {
+  id: number;
+  name: string;
+  lat: number;
+  lon: number;
+  operator: string;
+  capacity: number | null;
+  ccs: boolean;
+  chademo: boolean;
+  type2: boolean;
+  maxPowerKw: number | null;
+  street: string | null;
+  city: string | null;
+}

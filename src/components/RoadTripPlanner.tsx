@@ -7,6 +7,7 @@ interface RoadTripPlannerProps {
   distanceMil: number;
   vehicle: VehicleProfile;
   conditions: TripConditions;
+  petrolPricePerLiter?: number;
   onSelectRoutePreset: (start: string, dest: string, distanceMil: number) => void;
 }
 
@@ -14,6 +15,7 @@ export const RoadTripPlanner: React.FC<RoadTripPlannerProps> = ({
   distanceMil,
   vehicle,
   conditions,
+  petrolPricePerLiter = 17.69,
   onSelectRoutePreset,
 }) => {
   const [startBatteryPercent, setStartBatteryPercent] = useState<number>(100);
@@ -33,7 +35,10 @@ export const RoadTripPlanner: React.FC<RoadTripPlannerProps> = ({
     vehicle.batteryCapacityKwh,
     conditions,
     startBatteryPercent,
-    arrivalBufferPercent
+    arrivalBufferPercent,
+    1.15,
+    4.95,
+    petrolPricePerLiter
   );
 
   return (

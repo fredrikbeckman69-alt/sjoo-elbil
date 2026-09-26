@@ -5,7 +5,7 @@ import { TripConditionsSelector } from './components/TripConditions';
 import { VehicleSettings } from './components/VehicleSettings';
 import { RouteCalculator } from './components/RouteCalculator';
 import { RoadTripChecklist } from './components/RoadTripChecklist';
-import { MonthlySettings } from './components/MonthlySettings';
+import { fetchCurrentPetrolPrice, FuelPriceData, DEFAULT_FUEL_PRICE } from './services/fuelPriceService';
 import { ScenarioComparison } from './components/ScenarioComparison';
 import { VisualChart } from './components/VisualChart';
 import { SummaryTable } from './components/SummaryTable';
@@ -41,6 +41,7 @@ import {
 } from './db/indexedDb';
 import { VehicleRegistryTab } from './components/VehicleRegistryTab';
 import { ChargingOperatorsTab } from './components/ChargingOperatorsTab';
+import { ChargingMap } from './components/ChargingMap';
 import { NavigationTabs, AppTab } from './components/NavigationTabs';
 import { CalculatedPlanCost } from './types/chargingOperators';
 import { Zap, ExternalLink, Loader2 } from 'lucide-react';
@@ -58,12 +59,13 @@ export const App: React.FC = () => {
   const [trips, setTripsState] = useState<SavedTrip[]>([]);
   const [conditions, setConditionsState] = useState<TripConditions>(DEFAULT_TRIP_CONDITIONS);
   const [checklist, setChecklistState] = useState<ChecklistItem[]>(DEFAULT_CHECKLIST);
+  const [fuelPrice, setFuelPriceState] = useState<FuelPriceData>(DEFAULT_FUEL_PRICE);
   const [activeTab, setActiveTabState] = useState<AppTab>('calculator');
 
   // Ladda data från IndexedDB vid start
   const loadDataFromDb = useCallback(async () => {
     try {
-      const [v, sc, tDist, mDist, sAddr, dAddr, trList, cond, chk, tab] = await Promise.all([
+      const [v, sc, tDist, mDist, sAddr, dAddr, trList, cond, chk, tab, cachedFuel] = await Promise.all([
         getActiveVehicle(),
         getScenarios(),
         getSetting<number>('tripDistanceMil', 42),
@@ -74,6 +76,7 @@ export const App: React.FC = () => {
         getSetting<TripConditions>('tripConditions', DEFAULT_TRIP_CONDITIONS),
         getSetting<ChecklistItem[]>('tripChecklist', DEFAULT_CHECKLIST),
         getSetting<AppTab>('activeTab', 'calculator'),
+        getSetting<FuelPriceData>('petrolPriceData', DEFAULT_FUEL_PRICE),
       ]);
 
       setVehicleState(v);
@@ -86,6 +89,13 @@ export const App: React.FC = () => {
       setConditionsState(cond);
       setChecklistState(chk);
       if (tab) setActiveTabState(tab);
+      if (cachedFuel) setFuelPriceState(cachedFuel);
+
+      // Hämta färskt bensinpris asynkront och spara
+      fetchCurrentPetrolPrice().then((fresh) => {
+        setFuelPriceState(fresh);
+        setSetting('petrolPriceData', fresh);
+      });
     } catch (err) {
       console.warn('Kunde inte läsa från IndexedDB, använder defaults:', err);
     } finally {
@@ -113,12 +123,6 @@ export const App: React.FC = () => {
   const handleTripDistanceChange = (mil: number) => {
     setTripDistanceMilState(mil);
     setSetting('tripDistanceMil', mil);
-  };
-
-  // Uppdatera månadskörsträcka och spara i IndexedDB
-  const handleMonthlyDistanceChange = (mil: number) => {
-    setMonthlyDistanceMilState(mil);
-    setSetting('monthlyDistanceMil', mil);
   };
 
   // Uppdatera adresser och spara i IndexedDB
@@ -221,18 +225,41 @@ export const App: React.FC = () => {
     window.scrollTo({ top: 400, behavior: 'smooth' });
   };
 
+  const handleSelectStationAsDestination = (destNameOrAddress: string) => {
+    handleDestAddressChange(destNameOrAddress);
+    handleTabChange('calculator');
+    window.scrollTo({ top: 300, behavior: 'smooth' });
+  };
+
+  const handlePetrolPriceChange = (newPrice: number) => {
+    const updated: FuelPriceData = {
+      ...fuelPrice,
+      pricePerLiter: newPrice,
+      updatedAt: new Date().toISOString().slice(0, 10),
+    };
+    setFuelPriceState(updated);
+    setSetting('petrolPriceData', updated);
+  };
+
+  const handleRefreshPetrolPrice = async () => {
+    const fresh = await fetchCurrentPetrolPrice();
+    setFuelPriceState(fresh);
+    setSetting('petrolPriceData', fresh);
+  };
+
   // Effektiv förbrukning justerad för yttre faktorer
   const { effectiveKwhPer100Km } = calculateEffectiveConsumption(
     vehicle.consumptionKwhPer100Km,
     conditions
   );
 
-  // Beräkna alla scenariokostnader baserat på den effektiva förbrukningen
+  // Beräkna alla scenariokostnader baserat på den effektiva förbrukningen och det aktuella bensinpriset
   const { results, cheapestTripId, cheapestMonthlyId } = calculateScenarioResults(
     scenarios,
     effectiveKwhPer100Km,
     tripDistanceMil,
-    monthlyDistanceMil
+    monthlyDistanceMil,
+    fuelPrice.pricePerLiter
   );
 
   if (!isDbLoaded) {
@@ -256,8 +283,14 @@ export const App: React.FC = () => {
           activeTab={activeTab}
           onTabChange={handleTabChange}
           operatorsCount={15}
+          stationsCount={4485}
           activeVehicleName={vehicle.name}
         />
+
+        {activeTab === 'map' && (
+          /* Separat flik: Sveriges alla laddstationer på interaktiv karta */
+          <ChargingMap onSelectStationAsDestination={handleSelectStationAsDestination} />
+        )}
 
         {activeTab === 'registry' && (
           /* Separat flik: Offentliga fordonsregister */
@@ -284,6 +317,7 @@ export const App: React.FC = () => {
           distanceMil={tripDistanceMil}
           vehicle={vehicle}
           conditions={conditions}
+          petrolPricePerLiter={fuelPrice.pricePerLiter}
           onSelectRoutePreset={handleSelectRoutePreset}
         />
 
@@ -338,13 +372,7 @@ export const App: React.FC = () => {
           onClearAllTrips={handleClearAllTrips}
         />
 
-        {/* 8. Monthly Distance Estimation */}
-        <MonthlySettings
-          monthlyDistanceMil={monthlyDistanceMil}
-          onMonthlyDistanceChange={handleMonthlyDistanceChange}
-        />
-
-        {/* 9. Scenario & Price Comparison */}
+        {/* 8. Scenario & Price Comparison */}
         <ScenarioComparison
           scenarios={scenarios}
           results={results}
@@ -355,11 +383,16 @@ export const App: React.FC = () => {
           onUpdateScenarios={handleScenariosChange}
         />
 
-        {/* 10. Visual Chart & Savings */}
+        {/* 9. Visual Chart & Savings with Live Dynamic Petrol Price */}
         <VisualChart
           results={results}
           tripDistanceMil={tripDistanceMil}
           monthlyDistanceMil={monthlyDistanceMil}
+          petrolPricePerLiter={fuelPrice.pricePerLiter}
+          petrolSource={fuelPrice.source}
+          petrolUpdatedAt={fuelPrice.updatedAt}
+          onPetrolPriceChange={handlePetrolPriceChange}
+          onRefreshPetrolPrice={handleRefreshPetrolPrice}
         />
 
         {/* 11. Complete Summary Table */}
