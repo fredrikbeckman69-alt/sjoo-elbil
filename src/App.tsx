@@ -2,8 +2,9 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { HeaderHero } from './components/HeaderHero';
 import { RoadTripPlanner } from './components/RoadTripPlanner';
 import { TripConditionsSelector } from './components/TripConditions';
-import { VehicleSettings } from './components/VehicleSettings';
+import { OperatorRoutePlanner } from './components/OperatorRoutePlanner';
 import { RouteCalculator } from './components/RouteCalculator';
+import { RouteResult } from './services/routing';
 import { RoadTripChecklist } from './components/RoadTripChecklist';
 import { fetchCurrentPetrolPrice, FuelPriceData, DEFAULT_FUEL_PRICE } from './services/fuelPriceService';
 import { ScenarioComparison } from './components/ScenarioComparison';
@@ -79,6 +80,8 @@ export const App: React.FC = () => {
   const [fuelPrice, setFuelPriceState] = useState<FuelPriceData>(DEFAULT_FUEL_PRICE);
   const [activeTab, setActiveTabState] = useState<AppTab>('calculator');
   const [isRoundTrip, setIsRoundTripState] = useState<boolean>(false);
+  const [waypoints, setWaypointsState] = useState<string[]>([]);
+  const [routeResult, setRouteResultState] = useState<RouteResult | null>(null);
   const [syncStatus, setSyncStatus] = useState<SyncStatus>({
     isSyncing: false,
     lastSyncedAt: null,
@@ -89,7 +92,7 @@ export const App: React.FC = () => {
   // Ladda data från IndexedDB vid start
   const loadDataFromDb = useCallback(async () => {
     try {
-      const [v, sc, tDist, mDist, sAddr, dAddr, trList, cond, chk, tab, cachedFuel, roundTrip] = await Promise.all([
+      const [v, sc, tDist, mDist, sAddr, dAddr, trList, cond, chk, tab, cachedFuel, roundTrip, savedWaypoints] = await Promise.all([
         getActiveVehicle(),
         getScenarios(),
         getSetting<number>('tripDistanceMil', 42),
@@ -102,6 +105,7 @@ export const App: React.FC = () => {
         getSetting<AppTab>('activeTab', 'calculator'),
         getSetting<FuelPriceData>('petrolPriceData', DEFAULT_FUEL_PRICE),
         getSetting<boolean>('isRoundTrip', false),
+        getSetting<string[]>('waypoints', []),
       ]);
 
       setVehicleState(v);
@@ -116,6 +120,7 @@ export const App: React.FC = () => {
       if (tab) setActiveTabState(tab);
       if (cachedFuel) setFuelPriceState(cachedFuel);
       if (typeof roundTrip === 'boolean') setIsRoundTripState(roundTrip);
+      if (Array.isArray(savedWaypoints)) setWaypointsState(savedWaypoints);
 
       // Hämta färskt bensinpris asynkront och spara
       fetchCurrentPetrolPrice().then((fresh) => {
@@ -294,10 +299,19 @@ export const App: React.FC = () => {
     pushCloudState({ isRoundTrip: roundTrip });
   };
 
+  // Uppdatera delresmål
+  const handleWaypointsChange = (newWaypoints: string[]) => {
+    setWaypointsState(newWaypoints);
+    setSetting('waypoints', newWaypoints);
+  };
+
   // Snabbval av svensk långresa
   const handleSelectRoutePreset = (start: string, dest: string, distanceMil: number) => {
     setStartAddressState(start);
     setDestAddressState(dest);
+    setWaypointsState([]);
+    setRouteResultState(null);
+    setSetting('waypoints', []);
     const finalDist = isRoundTrip ? distanceMil * 2 : distanceMil;
     setTripDistanceMilState(finalDist);
     setSetting('startAddress', start);
@@ -372,6 +386,7 @@ export const App: React.FC = () => {
 
   const handleSelectStationAsDestination = (destNameOrAddress: string) => {
     handleDestAddressChange(destNameOrAddress);
+    setRouteResultState(null);
     handleTabChange('calculator');
     window.scrollTo({ top: 300, behavior: 'smooth' });
   };
@@ -572,9 +587,20 @@ export const App: React.FC = () => {
           onChange={handleConditionsChange}
         />
 
-        {/* 4. Primary Configuration Grid: Vehicle & Trip */}
+        {/* 4. Primary Configuration Grid: Valbara Operatörer (Vänster) & Ruttkalkyl (Höger) */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <VehicleSettings vehicle={vehicle} onChange={handleVehicleChange} />
+          <OperatorRoutePlanner
+            vehicle={vehicle}
+            onVehicleChange={handleVehicleChange}
+            conditions={conditions}
+            tripDistanceMil={tripDistanceMil}
+            startAddress={startAddress}
+            destAddress={destAddress}
+            waypoints={waypoints}
+            routeCoordinates={routeResult?.routeCoordinates}
+            homePricePerKwh={homePrice}
+            petrolPricePerLiter={fuelPrice.pricePerLiter}
+          />
           <RouteCalculator
             distanceMil={tripDistanceMil}
             onDistanceChange={handleTripDistanceChange}
@@ -582,8 +608,11 @@ export const App: React.FC = () => {
             onStartAddressChange={handleStartAddressChange}
             destAddress={destAddress}
             onDestAddressChange={handleDestAddressChange}
+            waypoints={waypoints}
+            onWaypointsChange={handleWaypointsChange}
             isRoundTrip={isRoundTrip}
             onIsRoundTripChange={handleRoundTripChange}
+            onRouteCalculated={setRouteResultState}
           />
         </div>
 

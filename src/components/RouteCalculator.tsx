@@ -1,17 +1,20 @@
 import React, { useState } from 'react';
-import { Navigation, MapPin, Search, Loader2, Clock, CheckCircle2, AlertCircle, ArrowRightLeft, ArrowLeftRight } from 'lucide-react';
+import { Navigation, MapPin, Search, Loader2, Clock, CheckCircle2, AlertCircle, ArrowRightLeft, ArrowLeftRight, Plus, Trash2 } from 'lucide-react';
 import { calculateRoute, RouteResult, formatDuration } from '../services/routing';
 import { SWEDISH_ROUTE_PRESETS } from '../utils/calculations';
 
-interface RouteCalculatorProps {
+export interface RouteCalculatorProps {
   distanceMil: number;
   onDistanceChange: (mil: number) => void;
   startAddress: string;
   onStartAddressChange: (val: string) => void;
   destAddress: string;
   onDestAddressChange: (val: string) => void;
+  waypoints?: string[];
+  onWaypointsChange?: (waypoints: string[]) => void;
   isRoundTrip?: boolean;
   onIsRoundTripChange?: (val: boolean) => void;
+  onRouteCalculated?: (res: RouteResult) => void;
 }
 
 export const RouteCalculator: React.FC<RouteCalculatorProps> = ({
@@ -21,11 +24,41 @@ export const RouteCalculator: React.FC<RouteCalculatorProps> = ({
   onStartAddressChange,
   destAddress,
   onDestAddressChange,
+  waypoints: propWaypoints,
+  onWaypointsChange,
   isRoundTrip: propIsRoundTrip,
   onIsRoundTripChange,
+  onRouteCalculated,
 }) => {
   const [internalRoundTrip, setInternalRoundTrip] = useState<boolean>(false);
   const isRoundTrip = propIsRoundTrip !== undefined ? propIsRoundTrip : internalRoundTrip;
+
+  const [internalWaypoints, setInternalWaypoints] = useState<string[]>([]);
+  const waypoints = propWaypoints !== undefined ? propWaypoints : internalWaypoints;
+
+  const handleWaypointsChange = (newWaypoints: string[]) => {
+    if (onWaypointsChange) {
+      onWaypointsChange(newWaypoints);
+    } else {
+      setInternalWaypoints(newWaypoints);
+    }
+  };
+
+  const handleAddWaypoint = () => {
+    if (waypoints.length >= 5) return;
+    handleWaypointsChange([...waypoints, '']);
+  };
+
+  const handleWaypointChange = (index: number, val: string) => {
+    const updated = [...waypoints];
+    updated[index] = val;
+    handleWaypointsChange(updated);
+  };
+
+  const handleRemoveWaypoint = (index: number) => {
+    const updated = waypoints.filter((_, i) => i !== index);
+    handleWaypointsChange(updated);
+  };
 
   const [unitMode, setUnitMode] = useState<'mil' | 'km'>('mil');
   const [loading, setLoading] = useState(false);
@@ -75,8 +108,12 @@ export const RouteCalculator: React.FC<RouteCalculatorProps> = ({
     setError(null);
 
     try {
-      const res = await calculateRoute(startAddress, destAddress);
+      const validWaypoints = waypoints.map((w) => w.trim()).filter((w) => w.length > 0);
+      const res = await calculateRoute(startAddress, destAddress, validWaypoints);
       setRouteResult(res);
+      if (onRouteCalculated) {
+        onRouteCalculated(res);
+      }
       // Mata in den faktiska körsträckan i kalkylen (dubblera om tur och retur)
       const targetDist = isRoundTrip ? Number((res.distanceMil * 2).toFixed(2)) : res.distanceMil;
       onDistanceChange(targetDist);
@@ -91,6 +128,9 @@ export const RouteCalculator: React.FC<RouteCalculatorProps> = ({
     const temp = startAddress;
     onStartAddressChange(destAddress);
     onDestAddressChange(temp);
+    if (waypoints.length > 1) {
+      handleWaypointsChange([...waypoints].reverse());
+    }
   };
 
   const handleManualDistanceChange = (valStr: string) => {
@@ -160,7 +200,48 @@ export const RouteCalculator: React.FC<RouteCalculatorProps> = ({
             />
           </div>
 
-          <div className="flex justify-center -my-1">
+          {/* Delresmål (Waypoints) */}
+          {waypoints.map((wp, idx) => (
+            <div key={idx} className="relative flex items-center gap-2">
+              <div className="flex-1">
+                <label className="block text-[11px] font-medium text-amber-400 mb-1 flex items-center gap-1.5">
+                  <MapPin className="w-3 h-3 text-amber-400" />
+                  Delresmål {idx + 1}
+                </label>
+                <input
+                  type="text"
+                  value={wp}
+                  onChange={(e) => handleWaypointChange(idx, e.target.value)}
+                  placeholder="T.ex. Linköping, Jönköping eller rastplats"
+                  className="w-full bg-slate-900 border border-amber-500/40 rounded-lg px-3.5 py-2 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-amber-400"
+                />
+              </div>
+              <button
+                type="button"
+                onClick={() => handleRemoveWaypoint(idx)}
+                className="mt-5 p-2 rounded-lg bg-slate-900 hover:bg-red-500/20 text-slate-400 hover:text-red-400 border border-slate-800 hover:border-red-500/30 transition shrink-0"
+                title="Ta bort delresmål"
+              >
+                <Trash2 className="w-4 h-4" />
+              </button>
+            </div>
+          ))}
+
+          {/* Knappar: Lägg till delresmål & Växla */}
+          <div className="flex items-center justify-between pt-0.5">
+            {waypoints.length < 5 ? (
+              <button
+                type="button"
+                onClick={handleAddWaypoint}
+                className="text-[11px] font-semibold text-cyan-400 hover:text-cyan-300 flex items-center gap-1.5 bg-cyan-500/10 hover:bg-cyan-500/20 px-2.5 py-1.5 rounded-lg border border-cyan-500/20 transition active:scale-95"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>+ Lägg till delresmål</span>
+              </button>
+            ) : (
+              <span className="text-[10px] text-slate-500 italic">Max 5 delresmål</span>
+            )}
+
             <button
               type="button"
               onClick={handleSwapAddresses}
@@ -254,6 +335,7 @@ export const RouteCalculator: React.FC<RouteCalculatorProps> = ({
                     onClick={() => {
                       onStartAddressChange(preset.start);
                       onDestAddressChange(preset.dest);
+                      handleWaypointsChange([]);
                       onDistanceChange(targetDist);
                       setRouteResult(null);
                     }}
@@ -300,7 +382,16 @@ export const RouteCalculator: React.FC<RouteCalculatorProps> = ({
                 Rutt beräknad{isRoundTrip ? ' (Tur & retur)' : ''}:{' '}
               </span>
               <span>
-                {routeResult.startPlace} {isRoundTrip ? '⇄' : '➔'} {routeResult.destPlace}
+                {routeResult.startPlace}
+                {routeResult.waypoints && routeResult.waypoints.length > 0 && (
+                  <>
+                    {' '}➔{' '}
+                    <span className="text-amber-300 font-medium">
+                      {routeResult.waypoints.map((wp) => wp.displayName.split(',')[0]).join(' ➔ ')}
+                    </span>
+                  </>
+                )}
+                {' '}{isRoundTrip ? '⇄' : '➔'} {routeResult.destPlace}
               </span>
             </div>
           </div>
