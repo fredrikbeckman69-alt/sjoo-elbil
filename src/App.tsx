@@ -39,6 +39,10 @@ import {
   deleteTrip,
   clearAllTrips,
 } from './db/indexedDb';
+import { VehicleRegistryTab } from './components/VehicleRegistryTab';
+import { ChargingOperatorsTab } from './components/ChargingOperatorsTab';
+import { NavigationTabs, AppTab } from './components/NavigationTabs';
+import { CalculatedPlanCost } from './types/chargingOperators';
 import { Zap, ExternalLink, Loader2 } from 'lucide-react';
 
 export const App: React.FC = () => {
@@ -54,11 +58,12 @@ export const App: React.FC = () => {
   const [trips, setTripsState] = useState<SavedTrip[]>([]);
   const [conditions, setConditionsState] = useState<TripConditions>(DEFAULT_TRIP_CONDITIONS);
   const [checklist, setChecklistState] = useState<ChecklistItem[]>(DEFAULT_CHECKLIST);
+  const [activeTab, setActiveTabState] = useState<AppTab>('calculator');
 
   // Ladda data från IndexedDB vid start
   const loadDataFromDb = useCallback(async () => {
     try {
-      const [v, sc, tDist, mDist, sAddr, dAddr, trList, cond, chk] = await Promise.all([
+      const [v, sc, tDist, mDist, sAddr, dAddr, trList, cond, chk, tab] = await Promise.all([
         getActiveVehicle(),
         getScenarios(),
         getSetting<number>('tripDistanceMil', 42),
@@ -68,6 +73,7 @@ export const App: React.FC = () => {
         getAllTrips(),
         getSetting<TripConditions>('tripConditions', DEFAULT_TRIP_CONDITIONS),
         getSetting<ChecklistItem[]>('tripChecklist', DEFAULT_CHECKLIST),
+        getSetting<AppTab>('activeTab', 'calculator'),
       ]);
 
       setVehicleState(v);
@@ -79,6 +85,7 @@ export const App: React.FC = () => {
       setTripsState(trList);
       setConditionsState(cond);
       setChecklistState(chk);
+      if (tab) setActiveTabState(tab);
     } catch (err) {
       console.warn('Kunde inte läsa från IndexedDB, använder defaults:', err);
     } finally {
@@ -173,6 +180,47 @@ export const App: React.FC = () => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
+  // Byt flik och spara val i IndexedDB
+  const handleTabChange = (tab: AppTab) => {
+    setActiveTabState(tab);
+    setSetting('activeTab', tab);
+  };
+
+  // Koppla vald bil från fordonsregistret till kalkylatorn
+  const handleApplyVehicleFromRegistry = (profile: VehicleProfile) => {
+    handleVehicleChange(profile);
+    handleTabChange('calculator');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  // Använd en laddoperatörs prisplan som scenario i kalkylatorn
+  const handleApplyOperatorPlanToScenario = (cost: CalculatedPlanCost) => {
+    const scenarioId = `op-${cost.operatorId}-${cost.plan.id}`;
+    const existingIndex = scenarios.findIndex((s) => s.id === scenarioId);
+    const newScenario: ChargingScenario = {
+      id: scenarioId,
+      name: `${cost.operatorName} (${cost.plan.name})`,
+      description: `${cost.plan.description}${cost.plan.discountNote ? ` • ${cost.plan.discountNote}` : ''}`,
+      pricePerKwh: cost.plan.priceDcKwh,
+      monthlyFee: cost.plan.monthlyFee,
+      sessionFee: 0,
+      badgeColor: cost.brandColor || 'cyan',
+      isDefault: false,
+    };
+
+    let updatedScenarios: ChargingScenario[];
+    if (existingIndex >= 0) {
+      updatedScenarios = [...scenarios];
+      updatedScenarios[existingIndex] = newScenario;
+    } else {
+      updatedScenarios = [newScenario, ...scenarios];
+    }
+
+    handleScenariosChange(updatedScenarios);
+    handleTabChange('calculator');
+    window.scrollTo({ top: 400, behavior: 'smooth' });
+  };
+
   // Effektiv förbrukning justerad för yttre faktorer
   const { effectiveKwhPer100Km } = calculateEffectiveConsumption(
     vehicle.consumptionKwhPer100Km,
@@ -203,8 +251,33 @@ export const App: React.FC = () => {
 
       {/* Main Container */}
       <main className="w-full max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6 flex-1 space-y-6">
-        {/* 1. Header & Hero with car image */}
-        <HeaderHero vehicle={vehicle} tripDistanceMil={tripDistanceMil} />
+        {/* Navigation Tabs */}
+        <NavigationTabs
+          activeTab={activeTab}
+          onTabChange={handleTabChange}
+          operatorsCount={15}
+          activeVehicleName={vehicle.name}
+        />
+
+        {activeTab === 'registry' && (
+          /* Separat flik: Offentliga fordonsregister */
+          <VehicleRegistryTab onApplyVehicleToCalculator={handleApplyVehicleFromRegistry} />
+        )}
+
+        {activeTab === 'operators' && (
+          /* Separat flik: Samtliga svenska laddoperatörer & priser */
+          <ChargingOperatorsTab
+            vehicle={vehicle}
+            onSelectPlanForScenario={handleApplyOperatorPlanToScenario}
+          />
+        )}
+
+        {activeTab === 'calculator' && (
+          /* Flik: Elbilskalkylator Pro */
+          <>
+            {/* 1. Header & Hero with car image */}
+            <HeaderHero vehicle={vehicle} tripDistanceMil={tripDistanceMil} />
+
 
         {/* 2. Occasional Driver Road Trip Assistant */}
         <RoadTripPlanner
@@ -290,14 +363,16 @@ export const App: React.FC = () => {
         />
 
         {/* 11. Complete Summary Table */}
-        <SummaryTable
-          results={results}
-          cheapestTripId={cheapestTripId}
-          cheapestMonthlyId={cheapestMonthlyId}
-          tripDistanceMil={tripDistanceMil}
-          monthlyDistanceMil={monthlyDistanceMil}
-        />
-      </main>
+          <SummaryTable
+            results={results}
+            cheapestTripId={cheapestTripId}
+            cheapestMonthlyId={cheapestMonthlyId}
+            tripDistanceMil={tripDistanceMil}
+            monthlyDistanceMil={monthlyDistanceMil}
+          />
+        </>
+      )}
+    </main>
 
       {/* Footer */}
       <footer className="w-full max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-6 text-center text-xs text-slate-500 border-t border-slate-900 mt-10">

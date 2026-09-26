@@ -103,3 +103,77 @@ export interface DatabaseBackup {
   trips: SavedTrip[];
   checklist?: ChecklistItem[];
 }
+
+export interface VehicleHistoryEvent {
+  date: string;
+  event: string;
+  description: string;
+}
+
+export interface VehicleDimensions {
+  lengthMm?: number;
+  widthMm?: number;
+  heightMm?: number;
+  curbWeightKg?: number;
+  totalWeightKg?: number;
+  maxPayloadKg?: number;
+  wheelbaseMm?: number;
+  bodyType?: string;
+  tiresFront?: string;
+  tiresRear?: string;
+  rims?: string;
+  passengers?: string;
+  towbar?: boolean;
+  noiseDrivingDb?: number;
+}
+
+export interface VehicleRegistryData {
+  regnr: string;
+  make: string;
+  model: string;
+  variant?: string;
+  fullName: string;
+  officialNameTS?: string;
+  year?: number;
+  modelYear?: number;
+  status: string;
+  svensksald: boolean;
+  color?: string;
+  fuel: string;
+  gearbox: string;
+  driveWheel: string;
+  powerHp?: number;
+  powerKw?: number;
+  topSpeedKmH?: number;
+  batteryCapacityKwh?: number;
+  batteryGrossKwh?: number;
+  consumptionWhKm?: number;
+  consumptionKwh100Km?: number;
+  consumptionKwhMil?: number;
+  rangeWltpKm?: number;
+  rangeWltpMil?: number;
+  rangeCityKm?: number;
+  mileageMil?: number;
+  mileageKm?: number;
+  estimatedMileageMil?: number;
+  ownersCount?: number;
+  usersCount?: number;
+  firstRegistered?: string;
+  inTrafficSweden?: string;
+  lastOwnershipChange?: string;
+  lastInspectionDate?: string;
+  lastInspectionMileageMil?: number;
+  lastInspectionResult?: string;
+  nextInspectionBefore?: string;
+  annualTaxSek?: number;
+  taxMonth?: string;
+  creditPurchase?: boolean;
+  leased?: boolean;
+  co2Emissions?: number;
+  environmentalClass?: string;
+  dimensions?: VehicleDimensions;
+  history?: VehicleHistoryEvent[];
+  source?: string;
+  fetchedAt?: string;
+}
+
