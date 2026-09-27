@@ -333,9 +333,12 @@ export const UnifiedTripPlanner: React.FC<UnifiedTripPlannerProps> = ({
   const savingsVsPetrol = Math.max(0, petrolTripCost - optimizationResult.totalTripCostSek);
 
   // Hantera ruttberäkning via OSRM
-  const handleSearchRoute = async (e?: React.FormEvent) => {
+  const handleSearchRoute = async (e?: React.FormEvent, customStart?: string, customDest?: string) => {
     if (e) e.preventDefault();
-    if (!startAddress.trim() || !destAddress.trim()) {
+    const effectiveStart = (customStart ?? startAddress).trim();
+    const effectiveDest = (customDest ?? destAddress).trim();
+
+    if (!effectiveStart || !effectiveDest) {
       setRouteError('Vänligen fyll i både startadress och destination.');
       return;
     }
@@ -345,7 +348,7 @@ export const UnifiedTripPlanner: React.FC<UnifiedTripPlannerProps> = ({
 
     try {
       const validWaypoints = waypoints.map((w) => w.trim()).filter((w) => w.length > 0);
-      const res = await calculateRoute(startAddress, destAddress, validWaypoints);
+      const res = await calculateRoute(effectiveStart, effectiveDest, validWaypoints);
       onRouteCalculated(res);
       const targetDist = isRoundTrip ? Number((res.distanceMil * 2).toFixed(2)) : res.distanceMil;
       onDistanceChange(targetDist);
@@ -369,6 +372,9 @@ export const UnifiedTripPlanner: React.FC<UnifiedTripPlannerProps> = ({
     onDestAddressChange(temp);
     if (waypoints.length > 1 && onWaypointsChange) {
       onWaypointsChange([...waypoints].reverse());
+    }
+    if (destAddress.trim() && temp.trim()) {
+      handleSearchRoute(undefined, destAddress, temp);
     }
   };
 
@@ -423,6 +429,36 @@ export const UnifiedTripPlanner: React.FC<UnifiedTripPlannerProps> = ({
       [key]: !conditions[key],
     });
   };
+
+  const cleanStart = startAddress.trim().toLowerCase().split(',')[0];
+  const cleanDest = destAddress.trim().toLowerCase().split(',')[0];
+
+  const isRouteValid = Boolean(
+    routeResult &&
+    cleanStart.length > 0 &&
+    cleanDest.length > 0 &&
+    (routeResult.destPlace.toLowerCase().includes(cleanDest) || cleanDest.includes(routeResult.destPlace.toLowerCase())) &&
+    (routeResult.startPlace.toLowerCase().includes(cleanStart) || cleanStart.includes(routeResult.startPlace.toLowerCase()))
+  );
+
+  // Synkronisera planerad körsträcka med ruttresultatet om de skiljer sig märkbart
+  useEffect(() => {
+    if (isRouteValid && routeResult) {
+      const targetDist = isRoundTrip
+        ? Number((routeResult.distanceMil * 2).toFixed(2))
+        : routeResult.distanceMil;
+      if (Math.abs(distanceMil - targetDist) > 0.5) {
+        onDistanceChange(targetDist);
+      }
+    }
+  }, [isRouteValid, routeResult, isRoundTrip, distanceMil, onDistanceChange]);
+
+  // Nollställ körsträcka om destinationen är tom
+  useEffect(() => {
+    if (!destAddress.trim() && distanceMil > 0) {
+      onDistanceChange(0);
+    }
+  }, [destAddress, distanceMil, onDistanceChange]);
 
   const displayedDistance =
     unitMode === 'mil' ? distanceMil : Number((distanceMil * 10).toFixed(1));
@@ -555,6 +591,13 @@ export const UnifiedTripPlanner: React.FC<UnifiedTripPlannerProps> = ({
                   onStartAddressChange(val);
                   if (routeError) setRouteError(null);
                 }}
+                onSelectPlace={(place) => {
+                  const formatted = `${place.name}, Sverige`;
+                  onStartAddressChange(formatted);
+                  if (destAddress.trim()) {
+                    handleSearchRoute(undefined, formatted, destAddress);
+                  }
+                }}
                 label="Startadress (Stad eller gata)"
                 placeholder="T.ex. Skövde, Sverige eller hemadress"
                 icon={<MapPin className="w-3.5 h-3.5 text-emerald-400" />}
@@ -615,6 +658,13 @@ export const UnifiedTripPlanner: React.FC<UnifiedTripPlannerProps> = ({
                   onDestAddressChange(val);
                   if (routeError) setRouteError(null);
                 }}
+                onSelectPlace={(place) => {
+                  const formatted = `${place.name}, Sverige`;
+                  onDestAddressChange(formatted);
+                  if (startAddress.trim()) {
+                    handleSearchRoute(undefined, startAddress, formatted);
+                  }
+                }}
                 placeholder="T.ex. Pajala, Göteborg eller Malmö"
                 icon={<MapPin className="w-3.5 h-3.5 text-rose-400" />}
               />
@@ -635,6 +685,9 @@ export const UnifiedTripPlanner: React.FC<UnifiedTripPlannerProps> = ({
                 onClick={() => {
                   onDestAddressChange(fav);
                   if (routeError) setRouteError(null);
+                  if (startAddress.trim()) {
+                    handleSearchRoute(undefined, startAddress, fav);
+                  }
                 }}
                 className={`px-2 py-0.5 rounded-lg border text-[11px] font-medium transition cursor-pointer flex items-center gap-1 ${
                   destAddress.toLowerCase().includes(fav.toLowerCase())
@@ -656,6 +709,9 @@ export const UnifiedTripPlanner: React.FC<UnifiedTripPlannerProps> = ({
                   onClick={() => {
                     onDestAddressChange(place);
                     if (routeError) setRouteError(null);
+                    if (startAddress.trim()) {
+                      handleSearchRoute(undefined, startAddress, place);
+                    }
                   }}
                   className={`px-2 py-0.5 rounded-lg border text-[11px] font-medium transition cursor-pointer ${
                     destAddress.toLowerCase().includes(place.toLowerCase())
@@ -802,7 +858,12 @@ export const UnifiedTripPlanner: React.FC<UnifiedTripPlannerProps> = ({
         {/* Beräknat ruttresultat & Manuell finjustering */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-2 border-t border-slate-800/80">
           {/* Vänster: Ruttstatus från kartmotor */}
-          {routeResult && (destAddress.trim().length === 0 || routeResult.destPlace.toLowerCase().includes(destAddress.trim().toLowerCase().split(',')[0]) || destAddress.trim().toLowerCase().includes(routeResult.destPlace.toLowerCase().split(',')[0])) ? (
+          {loadingRoute ? (
+            <div className="p-3 rounded-xl bg-cyan-500/10 border border-cyan-500/30 text-slate-200 text-xs flex items-center gap-2.5">
+              <Loader2 className="w-4 h-4 text-cyan-400 animate-spin shrink-0" />
+              <span className="text-cyan-300 font-medium">Beräknar rutt & körsträcka via vägnätet...</span>
+            </div>
+          ) : isRouteValid && routeResult ? (
             <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-slate-200 text-xs flex items-center justify-between gap-2">
               <div className="flex items-center gap-2 min-w-0">
                 <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />

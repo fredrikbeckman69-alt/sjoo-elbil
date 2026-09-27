@@ -117,7 +117,7 @@ export const App: React.FC = () => {
         const finalVehicle = user?.vehicleProfile || v;
         const finalStartAddress = (!sAddr || sAddr === 'Stockholm') ? 'Skövde, Sverige' : sAddr;
         const finalDestAddress = dAddr === 'Sälen' ? '' : (dAddr || '');
-        const finalTripDist = (dAddr === 'Sälen' && tDist === 42) ? 0 : (tDist ?? 0);
+        const finalTripDist = (!finalDestAddress.trim() || (dAddr === 'Sälen' && tDist === 42)) ? 0 : (tDist ?? 0);
 
         setVehicleState(finalVehicle);
         setScenariosState(sc);
@@ -184,23 +184,39 @@ export const App: React.FC = () => {
     return cleanup;
   }, []);
 
-  // Beräkna rutt automatiskt i bakgrunden så att ruttkoordinater och korridorer alltid finns tillgängliga
+  // Beräkna rutt automatiskt med debounce så att ruttkoordinater och planerad körsträcka alltid hålls 100% synkade
   useEffect(() => {
-    if (!startAddress || !destAddress) return;
+    const cleanStart = startAddress.trim();
+    const cleanDest = destAddress.trim();
+
+    if (!cleanStart || !cleanDest) {
+      if (routeResult) setRouteResultState(null);
+      return;
+    }
+
     let isCancelled = false;
-    calculateRoute(startAddress, destAddress, waypoints)
-      .then((res) => {
-        if (!isCancelled && res) {
-          setRouteResultState(res);
-        }
-      })
-      .catch(() => {
-        // Ignorera fel vid automatisk bakgrundsuppslag
-      });
+    const timer = setTimeout(() => {
+      calculateRoute(cleanStart, cleanDest, waypoints)
+        .then((res) => {
+          if (!isCancelled && res) {
+            setRouteResultState(res);
+            // Synkronisera den planerade körsträckan direkt med den framräknade rutten
+            const targetDist = isRoundTrip ? Number((res.distanceMil * 2).toFixed(2)) : res.distanceMil;
+            setTripDistanceMilState(targetDist);
+            setSetting('tripDistanceMil', targetDist, currentUser?.id);
+            pushCloudState({ tripDistanceMil: targetDist });
+          }
+        })
+        .catch(() => {
+          // Ignorera fel vid automatisk bakgrundsuppslag
+        });
+    }, 400);
+
     return () => {
       isCancelled = true;
+      clearTimeout(timer);
     };
-  }, [startAddress, destAddress, waypoints]);
+  }, [startAddress, destAddress, waypoints, isRoundTrip, currentUser?.id]);
 
   const handleLoginSuccess = (account: UserAccount) => {
     const cleanedAccount: UserAccount = {
@@ -341,12 +357,21 @@ export const App: React.FC = () => {
     setStartAddressState(addr);
     setSetting('startAddress', addr, currentUser?.id);
     pushCloudState({ startAddress: addr });
+    if (!addr.trim()) {
+      setRouteResultState(null);
+    }
   };
 
   const handleDestAddressChange = (addr: string) => {
     setDestAddressState(addr);
     setSetting('destAddress', addr, currentUser?.id);
     pushCloudState({ destAddress: addr });
+    if (!addr.trim()) {
+      setRouteResultState(null);
+      setTripDistanceMilState(0);
+      setSetting('tripDistanceMil', 0, currentUser?.id);
+      pushCloudState({ tripDistanceMil: 0 });
+    }
   };
 
   // Uppdatera körförhållanden (väder/takbox/motorväg)
