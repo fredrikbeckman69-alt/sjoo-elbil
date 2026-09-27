@@ -455,8 +455,11 @@ export const UnifiedTripPlanner: React.FC<UnifiedTripPlannerProps> = ({
               <input
                 type="text"
                 value={startAddress}
-                onChange={(e) => onStartAddressChange(e.target.value)}
-                placeholder="T.ex. Stockholm, Göteborg eller hemadress"
+                onChange={(e) => {
+                  onStartAddressChange(e.target.value);
+                  if (routeError) setRouteError(null);
+                }}
+                placeholder="T.ex. Skövde, Sverige eller hemadress"
                 className="w-full bg-slate-900 border border-slate-700/80 rounded-xl px-3.5 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500 transition"
               />
             </div>
@@ -481,8 +484,11 @@ export const UnifiedTripPlanner: React.FC<UnifiedTripPlannerProps> = ({
               <input
                 type="text"
                 value={destAddress}
-                onChange={(e) => onDestAddressChange(e.target.value)}
-                placeholder="T.ex. Sälen, Malmö eller Åre"
+                onChange={(e) => {
+                  onDestAddressChange(e.target.value);
+                  if (routeError) setRouteError(null);
+                }}
+                placeholder="T.ex. Pajala, Göteborg eller Malmö"
                 className="w-full bg-slate-900 border border-slate-700/80 rounded-xl px-3.5 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500 transition"
               />
             </div>
@@ -593,7 +599,7 @@ export const UnifiedTripPlanner: React.FC<UnifiedTripPlannerProps> = ({
         {/* Beräknat ruttresultat & Manuell finjustering */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-2 border-t border-slate-800/80">
           {/* Vänster: Ruttstatus från kartmotor */}
-          {routeResult ? (
+          {routeResult && (destAddress.trim().length === 0 || routeResult.destPlace.toLowerCase().includes(destAddress.trim().toLowerCase().split(',')[0]) || destAddress.trim().toLowerCase().includes(routeResult.destPlace.toLowerCase().split(',')[0])) ? (
             <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-slate-200 text-xs flex items-center justify-between gap-2">
               <div className="flex items-center gap-2 min-w-0">
                 <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
@@ -630,7 +636,11 @@ export const UnifiedTripPlanner: React.FC<UnifiedTripPlannerProps> = ({
           ) : (
             <div className="p-3 rounded-xl bg-slate-900 border border-slate-800 text-xs text-slate-400 flex items-center gap-2">
               <Navigation className="w-4 h-4 text-slate-500 shrink-0" />
-              <span>Ange adresser ovan för automatisk rutt och körtid.</span>
+              <span>
+                {destAddress.trim().length > 0
+                  ? `Klicka på "Beräkna rutt via OSRM" för att beräkna sträckan till ${destAddress}.`
+                  : 'Ange destination ovan och klicka på "Beräkna rutt via OSRM".'}
+              </span>
             </div>
           )}
 
