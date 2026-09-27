@@ -124,8 +124,9 @@ export function calculateEffectiveConsumption(
   if (conditions.isWinter) multiplier += 0.20; // +20% i kyla
   if (conditions.hasRoofBox) multiplier += 0.15; // +15% med takbox
   if (conditions.isHighwaySpeed) multiplier += 0.15; // +15% i 110-120 km/h
+  if (conditions.routePreference === 'eco') multiplier -= 0.10; // -10% vid energisnål rutt (landsvägsfart / eco-fart)
 
-  const effectiveKwhPer100Km = Number((baseKwhPer100Km * multiplier).toFixed(2));
+  const effectiveKwhPer100Km = Number((baseKwhPer100Km * Math.max(0.7, multiplier)).toFixed(2));
   const increasePercent = Math.round((multiplier - 1.0) * 100);
 
   return { effectiveKwhPer100Km, increasePercent };

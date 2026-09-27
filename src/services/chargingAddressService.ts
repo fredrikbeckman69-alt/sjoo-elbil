@@ -1,6 +1,8 @@
+import { StationFacility } from '../types';
+
 /**
  * Tjänst för att säkerställa att varje laddstopp har en verifierad, komplett fysisk adress
- * (Gatuadress, Postnummer och Ort) istället för vaga platshållare som "Längs färdvägen".
+ * (Gatuadress, Postnummer och Ort) samt information om faciliteter (WC, Mat, Kaffe etc.).
  */
 
 // Kända fysiska adresser för större snabbladdarhubbar i Sverige per ort och operatör
@@ -12,6 +14,63 @@ export interface KnownStationHub {
   lat: number;
   lon: number;
   operators: Record<string, string>; // operatorId -> fullständig adress
+  facilities?: StationFacility[];
+}
+
+export function getFacilitiesForHub(hub?: KnownStationHub | null, stationName?: string): StationFacility[] {
+  if (hub?.facilities && hub.facilities.length > 0) {
+    return hub.facilities;
+  }
+  const name = (stationName || hub?.name || '').toLowerCase();
+  const facs: StationFacility[] = ['wc'];
+  if (
+    name.includes('max') ||
+    name.includes('mcdonald') ||
+    name.includes('dinners') ||
+    name.includes('rasta') ||
+    name.includes('restaurang') ||
+    name.includes('kupolen') ||
+    name.includes('köpcentrum') ||
+    name.includes('väla') ||
+    name.includes('center syd') ||
+    name.includes('asecs')
+  ) {
+    facs.push('food');
+  }
+  if (
+    name.includes('circle k') ||
+    name.includes('okq8') ||
+    name.includes('preem') ||
+    name.includes('mack') ||
+    name.includes('fika') ||
+    name.includes('kaffe') ||
+    facs.includes('food')
+  ) {
+    facs.push('coffee');
+  }
+  if (
+    name.includes('köpcentrum') ||
+    name.includes('kupolen') ||
+    name.includes('asecs') ||
+    name.includes('väla') ||
+    name.includes('center syd') ||
+    name.includes('ica') ||
+    name.includes('storheden') ||
+    name.includes('birsta')
+  ) {
+    facs.push('shop');
+  }
+  if (
+    name.includes('rasta') ||
+    name.includes('max') ||
+    name.includes('mcdonald') ||
+    name.includes('dinners') ||
+    name.includes('gumsbacken') ||
+    name.includes('gävle bro')
+  ) {
+    facs.push('playground');
+  }
+  return facs;
 }
 
 export const KNOWN_SWEDISH_CHARGING_HUBS: KnownStationHub[] = [
@@ -658,6 +717,7 @@ export function resolveCorridorPhysicalAddress(params: {
   city: string;
   stationName: string;
   coordinates: [number, number];
+  facilities: StationFacility[];
 } {
   const {
     milestoneMil,
@@ -669,17 +729,28 @@ export function resolveCorridorPhysicalAddress(params: {
     coordinates,
   } = params;
 
+  const makeCorridorResult = (
+    hub: KnownStationHub | null,
+    cityName: string,
+    addr: string,
+    coords: [number, number]
+  ) => {
+    const sName = `${operatorName} ${cityName}`;
+    return {
+      address: addr,
+      city: cityName,
+      stationName: sName,
+      coordinates: coords,
+      facilities: getFacilitiesForHub(hub, sName),
+    };
+  };
+
   // 1. Prova först koordinatmatchning mot våra kända hubbar
   if (coordinates && coordinates[0] !== 0 && coordinates[1] !== 0) {
     const hub = findNearestKnownHub(coordinates[0], coordinates[1], 35);
     if (hub) {
       const opAddr = hub.operators[operatorId] || hub.operators['default'] || `${hub.street}, ${hub.postcode} ${hub.city}`;
-      return {
-        address: opAddr,
-        city: hub.city,
-        stationName: `${operatorName} ${hub.city}`,
-        coordinates: [hub.lat, hub.lon],
-      };
+      return makeCorridorResult(hub, hub.city, opAddr, [hub.lat, hub.lon]);
     }
   }
 
@@ -695,62 +766,26 @@ export function resolveCorridorPhysicalAddress(params: {
   if (isStockholmSalen && totalDistanceMil >= 30) {
     const ratio = totalDistanceMil > 0 ? milestoneMil / totalDistanceMil : 0.5;
 
-    // Stockholm -> Sälen delsträckor:
-    // ~15-25% -> Enköping / Sala
-    // ~35-45% -> Hedemora / Avesta
-    // ~50-65% -> Borlänge (21-25 mil från Sthlm)
-    // ~70-80% -> Vansbro / Djurås
-    // ~85-95% -> Malung
     if (ratio >= 0.45 && ratio <= 0.68) {
-      // Borlänge (Kupolen) - Den mest frekventa laddplatsen mellan Stockholm och Sälen (ca 22-24 mil)
       const hub = KNOWN_SWEDISH_CHARGING_HUBS.find((h) => h.city === 'Borlänge')!;
       const addr = hub.operators[operatorId] || hub.operators['default'];
-      return {
-        address: addr,
-        city: 'Borlänge',
-        stationName: `${operatorName} Borlänge`,
-        coordinates: [hub.lat, hub.lon],
-      };
+      return makeCorridorResult(hub, 'Borlänge', addr, [hub.lat, hub.lon]);
     } else if (ratio > 0.68 && ratio <= 0.85) {
-      // Vansbro / Djurås
       const hub = KNOWN_SWEDISH_CHARGING_HUBS.find((h) => h.city === 'Vansbro')!;
       const addr = hub.operators[operatorId] || hub.operators['default'];
-      return {
-        address: addr,
-        city: 'Vansbro',
-        stationName: `${operatorName} Vansbro`,
-        coordinates: [hub.lat, hub.lon],
-      };
+      return makeCorridorResult(hub, 'Vansbro', addr, [hub.lat, hub.lon]);
     } else if (ratio > 0.85) {
-      // Malung
       const hub = KNOWN_SWEDISH_CHARGING_HUBS.find((h) => h.city === 'Malung')!;
       const addr = hub.operators[operatorId] || hub.operators['default'];
-      return {
-        address: addr,
-        city: 'Malung',
-        stationName: `${operatorName} Malung`,
-        coordinates: [hub.lat, hub.lon],
-      };
+      return makeCorridorResult(hub, 'Malung', addr, [hub.lat, hub.lon]);
     } else if (ratio >= 0.30 && ratio < 0.45) {
-      // Hedemora
       const hub = KNOWN_SWEDISH_CHARGING_HUBS.find((h) => h.city === 'Hedemora')!;
       const addr = hub.operators[operatorId] || hub.operators['default'];
-      return {
-        address: addr,
-        city: 'Hedemora',
-        stationName: `${operatorName} Hedemora`,
-        coordinates: [hub.lat, hub.lon],
-      };
+      return makeCorridorResult(hub, 'Hedemora', addr, [hub.lat, hub.lon]);
     } else {
-      // Enköping
       const hub = KNOWN_SWEDISH_CHARGING_HUBS.find((h) => h.city === 'Enköping')!;
       const addr = hub.operators[operatorId] || hub.operators['default'];
-      return {
-        address: addr,
-        city: 'Enköping',
-        stationName: `${operatorName} Enköping`,
-        coordinates: [hub.lat, hub.lon],
-      };
+      return makeCorridorResult(hub, 'Enköping', addr, [hub.lat, hub.lon]);
     }
   }
 
@@ -762,25 +797,13 @@ export function resolveCorridorPhysicalAddress(params: {
   if (isStockholmGbg && totalDistanceMil >= 35) {
     const ratio = milestoneMil / totalDistanceMil;
     if (ratio >= 0.45 && ratio <= 0.65) {
-      // Jönköping / Örebro
       const hub = KNOWN_SWEDISH_CHARGING_HUBS.find((h) => h.city === 'Jönköping')!;
       const addr = hub.operators[operatorId] || hub.operators['default'];
-      return {
-        address: addr,
-        city: 'Jönköping',
-        stationName: `${operatorName} Jönköping`,
-        coordinates: [hub.lat, hub.lon],
-      };
+      return makeCorridorResult(hub, 'Jönköping', addr, [hub.lat, hub.lon]);
     } else if (ratio < 0.45) {
-      // Nyköping / Norrköping / Arboga
       const hub = KNOWN_SWEDISH_CHARGING_HUBS.find((h) => h.city === 'Norrköping')!;
       const addr = hub.operators[operatorId] || hub.operators['default'];
-      return {
-        address: addr,
-        city: 'Norrköping',
-        stationName: `${operatorName} Norrköping`,
-        coordinates: [hub.lat, hub.lon],
-      };
+      return makeCorridorResult(hub, 'Norrköping', addr, [hub.lat, hub.lon]);
     }
   }
 
@@ -793,20 +816,10 @@ export function resolveCorridorPhysicalAddress(params: {
     const ratio = milestoneMil / totalDistanceMil;
     if (ratio >= 0.40 && ratio <= 0.60) {
       const hub = KNOWN_SWEDISH_CHARGING_HUBS.find((h) => h.city === 'Jönköping')!;
-      return {
-        address: hub.operators[operatorId] || hub.operators['default'],
-        city: 'Jönköping',
-        stationName: `${operatorName} Jönköping`,
-        coordinates: [hub.lat, hub.lon],
-      };
+      return makeCorridorResult(hub, 'Jönköping', hub.operators[operatorId] || hub.operators['default'], [hub.lat, hub.lon]);
     } else if (ratio > 0.60 && ratio <= 0.80) {
       const hub = KNOWN_SWEDISH_CHARGING_HUBS.find((h) => h.city === 'Värnamo')!;
-      return {
-        address: hub.operators[operatorId] || hub.operators['default'],
-        city: 'Värnamo',
-        stationName: `${operatorName} Värnamo`,
-        coordinates: [hub.lat, hub.lon],
-      };
+      return makeCorridorResult(hub, 'Värnamo', hub.operators[operatorId] || hub.operators['default'], [hub.lat, hub.lon]);
     }
   }
 
@@ -820,6 +833,7 @@ export function resolveCorridorPhysicalAddress(params: {
         city: nearestHub.city,
         stationName: `${operatorName} ${nearestHub.city}`,
         coordinates: [nearestHub.lat, nearestHub.lon],
+        facilities: getFacilitiesForHub(nearestHub, `${operatorName} ${nearestHub.city}`),
       };
     }
   }
@@ -830,6 +844,7 @@ export function resolveCorridorPhysicalAddress(params: {
     city: defaultHub.city,
     stationName: `${operatorName} ${defaultHub.city}`,
     coordinates: [defaultHub.lat, defaultHub.lon],
+    facilities: getFacilitiesForHub(defaultHub, `${operatorName} ${defaultHub.city}`),
   };
 }
 
@@ -850,6 +865,7 @@ export function formatPhysicalAddressForStation(
   address: string;
   city: string;
   street: string;
+  facilities: StationFacility[];
 } {
   // 1. Prova koordinatmatchning mot kända svenska hubbar (inom 15 km)
   if (station.lat && station.lon) {
@@ -861,6 +877,7 @@ export function formatPhysicalAddressForStation(
         address: hubAddress,
         city: hub.city,
         street: hub.street,
+        facilities: getFacilitiesForHub(hub, station.name),
       };
     }
   }
@@ -871,6 +888,7 @@ export function formatPhysicalAddressForStation(
       address: `${station.street}, ${station.city}`,
       city: station.city,
       street: station.street,
+      facilities: getFacilitiesForHub(null, station.name),
     };
   }
 
@@ -880,6 +898,7 @@ export function formatPhysicalAddressForStation(
       address: station.street,
       city: 'Sverige',
       street: station.street,
+      facilities: getFacilitiesForHub(null, station.name),
     };
   }
 
@@ -895,12 +914,14 @@ export function formatPhysicalAddressForStation(
         address: addr,
         city: matchingHub.city,
         street: matchingHub.street,
+        facilities: getFacilitiesForHub(matchingHub, station.name),
       };
     }
     return {
       address: `${station.city} (Centrum / Avfart)`,
       city: station.city,
       street: station.city,
+      facilities: getFacilitiesForHub(null, station.name),
     };
   }
 
@@ -914,6 +935,7 @@ export function formatPhysicalAddressForStation(
           address: addr,
           city: hub.city,
           street: hub.street,
+          facilities: getFacilitiesForHub(hub, station.name),
         };
       }
     }
@@ -924,6 +946,7 @@ export function formatPhysicalAddressForStation(
     address: 'Längs huvudleden (Avfart laddstation)',
     city: 'Laddstation',
     street: 'Laddstation',
+    facilities: getFacilitiesForHub(null, station.name),
   };
 }
 

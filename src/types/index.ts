@@ -3,6 +3,7 @@ export interface VehicleProfile {
   name: string;
   consumptionKwhPer100Km: number; // e.g. 18.5
   batteryCapacityKwh: number; // e.g. 77
+  voltageArchitecture?: '400V' | '800V';
   photoUrl?: string;
 }
 
@@ -17,6 +18,8 @@ export interface UserAccount {
   vehicleProfile: VehicleProfile;
   color?: string;
   cloudDocId?: string; // Privat molndokument-ID för synkning mellan användarens egna enheter
+  activeMemberships?: string[];
+  electricityArea?: 'SE1' | 'SE2' | 'SE3' | 'SE4';
 }
 
 
@@ -41,10 +44,14 @@ export interface RouteInfo {
   errorMessage?: string;
 }
 
+export type StationFacility = 'wc' | 'food' | 'coffee' | 'playground' | 'shop';
+
 export interface TripConditions {
   isWinter: boolean; // +20%
   hasRoofBox: boolean; // +15%
   isHighwaySpeed: boolean; // +15%
+  preconditioning?: boolean; // Värm batteri inför laddning vid låg temperatur
+  routePreference?: 'fastest' | 'eco'; // Snabbaste väg vs energisnålare väg
 }
 
 export interface RoadTripAnalysis {
@@ -209,4 +216,5 @@ export interface ChargingStation {
   maxPowerKw: number | null;
   street: string | null;
   city: string | null;
+  facilities?: StationFacility[];
 }

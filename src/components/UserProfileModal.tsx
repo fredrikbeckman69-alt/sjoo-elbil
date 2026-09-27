@@ -10,6 +10,9 @@ import {
   AlertCircle,
   Loader2,
   AlertTriangle,
+  Zap,
+  CreditCard,
+  Globe,
 } from 'lucide-react';
 import { UserAccount } from '../types';
 import {
@@ -18,6 +21,7 @@ import {
   fileToResizedBase64,
 } from '../services/authService';
 import { formatRegnrPlate, cleanVehicleDisplayName } from '../services/vehicleRegistryService';
+import { SWEDISH_ELECTRICITY_AREAS, POPULAR_MEMBERSHIPS } from '../services/spotPriceService';
 import defaultCarImage from '../assets/bil.jpg';
 
 interface UserProfileModalProps {
@@ -37,6 +41,15 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
   const [ownerName, setOwnerName] = useState<string>(currentUser.ownerName || '');
   const [vehicleName, setVehicleName] = useState<string>(cleanVehicleDisplayName(currentUser.name, currentUser.regnr));
   const [photoUrl, setPhotoUrl] = useState<string | undefined>(currentUser.photoUrl);
+  const [electricityArea, setElectricityArea] = useState<'SE1' | 'SE2' | 'SE3' | 'SE4'>(currentUser.electricityArea || 'SE3');
+  const [voltageArchitecture, setVoltageArchitecture] = useState<'400V' | '800V'>(currentUser.vehicleProfile?.voltageArchitecture || '400V');
+  const [activeMemberships, setActiveMemberships] = useState<string[]>(currentUser.activeMemberships || []);
+
+  const toggleMembership = (id: string) => {
+    setActiveMemberships((prev) =>
+      prev.includes(id) ? prev.filter((m) => m !== id) : [...prev, id]
+    );
+  };
 
   // Pinkodsbyte
   const [isChangingPin, setIsChangingPin] = useState<boolean>(false);
@@ -90,6 +103,12 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
         ownerName: ownerName.trim(),
         name: vehicleName.trim() || currentUser.name,
         photoUrl: photoUrl || undefined,
+        electricityArea,
+        activeMemberships,
+        vehicleProfile: {
+          ...currentUser.vehicleProfile,
+          voltageArchitecture,
+        },
       });
 
       // Om användaren även ville byta pinkod
@@ -267,6 +286,119 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
                 placeholder="t.ex. Cupra Born 58"
                 className="w-full bg-slate-950 border border-slate-700 focus:border-cyan-500 rounded-xl py-2 px-3 text-xs text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/20"
               />
+            </div>
+          </div>
+
+          {/* Sektion: Elområde för hemmaladdning */}
+          <div className="bg-slate-950/80 border border-slate-800 rounded-2xl p-4 space-y-2.5">
+            <div className="flex items-center gap-2">
+              <Globe className="w-4 h-4 text-cyan-400" />
+              <span className="text-xs font-bold text-white">Elområde för hemmaladdning</span>
+            </div>
+            <p className="text-[11px] text-slate-400">
+              Välj var bilen laddas hemma för realistiskt natt- och dagspris (inkl. nätavgift och skatt).
+            </p>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+              {(['SE1', 'SE2', 'SE3', 'SE4'] as const).map((area) => {
+                const info = SWEDISH_ELECTRICITY_AREAS[area];
+                const isSelected = electricityArea === area;
+                return (
+                  <button
+                    key={area}
+                    type="button"
+                    onClick={() => setElectricityArea(area)}
+                    className={`p-2.5 rounded-xl border text-left transition text-xs cursor-pointer ${
+                      isSelected
+                        ? 'bg-cyan-500/20 border-cyan-500/80 text-white font-bold shadow-md shadow-cyan-500/10'
+                        : 'bg-slate-900 border-slate-800 text-slate-400 hover:text-slate-200'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="font-bold text-xs">{area}</span>
+                      <span className="text-[10px] text-cyan-300 font-mono-numbers">~{info.defaultPriceNightKwh.toFixed(2)} kr</span>
+                    </div>
+                    <div className="text-[10px] text-slate-500 truncate mt-0.5">
+                      {area === 'SE1' ? 'Luleå' : area === 'SE2' ? 'Sundsvall' : area === 'SE3' ? 'Stockholm/Väst' : 'Malmö'}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Sektion: Batteri- & Laddarkitektur (400V vs 800V) */}
+          <div className="bg-slate-950/80 border border-slate-800 rounded-2xl p-4 space-y-2.5">
+            <div className="flex items-center gap-2">
+              <Zap className="w-4 h-4 text-amber-400" />
+              <span className="text-xs font-bold text-white">Batteriarkitektur & Laddfart</span>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => setVoltageArchitecture('400V')}
+                className={`p-3 rounded-xl border text-left transition text-xs cursor-pointer ${
+                  voltageArchitecture === '400V'
+                    ? 'bg-amber-500/20 border-amber-500/80 text-white font-bold'
+                    : 'bg-slate-900 border-slate-800 text-slate-400 hover:text-slate-200'
+                }`}
+              >
+                <div className="font-bold">400V Arkitektur</div>
+                <div className="text-[10px] text-slate-400 mt-0.5">Standard för de flesta elbilar (10–80% på ca 30–35 min)</div>
+              </button>
+              <button
+                type="button"
+                onClick={() => setVoltageArchitecture('800V')}
+                className={`p-3 rounded-xl border text-left transition text-xs cursor-pointer ${
+                  voltageArchitecture === '800V'
+                    ? 'bg-amber-500/20 border-amber-500/80 text-white font-bold shadow-md shadow-amber-500/10'
+                    : 'bg-slate-900 border-slate-800 text-slate-400 hover:text-slate-200'
+                }`}
+              >
+                <div className="font-bold text-amber-300">800V Arkitektur</div>
+                <div className="text-[10px] text-slate-400 mt-0.5">Hyundai Ioniq 5/6, Kia EV6/EV9, Taycan (10–80% på ~18 min)</div>
+              </button>
+            </div>
+          </div>
+
+          {/* Sektion: Mina laddbrickor & Abonnemang */}
+          <div className="bg-slate-950/80 border border-slate-800 rounded-2xl p-4 space-y-2.5">
+            <div className="flex items-center gap-2">
+              <CreditCard className="w-4 h-4 text-emerald-400" />
+              <span className="text-xs font-bold text-white">Mina Laddbrickor & Abonnemang</span>
+            </div>
+            <p className="text-[11px] text-slate-400">
+              Bocka för dina aktiva abonnemang så tillämpas dina rabatterade medlemspriser automatiskt i ruttkalkylatorn.
+            </p>
+            <div className="space-y-1.5">
+              {POPULAR_MEMBERSHIPS.map((mem) => {
+                const isActive = activeMemberships.includes(mem.id);
+                return (
+                  <label
+                    key={mem.id}
+                    className={`flex items-start gap-2.5 p-2 rounded-xl border cursor-pointer transition text-xs ${
+                      isActive
+                        ? 'bg-emerald-950/30 border-emerald-500/60 text-white'
+                        : 'bg-slate-900 border-slate-800/80 text-slate-400 hover:border-slate-700'
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={isActive}
+                      onChange={() => toggleMembership(mem.id)}
+                      className="mt-0.5 accent-emerald-500 rounded"
+                    />
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-1.5">
+                        <span className="font-bold text-white">{mem.name}</span>
+                        <span className="text-[9px] px-1.5 py-0.2 rounded bg-slate-800 text-emerald-300 font-semibold">
+                          {mem.badge}
+                        </span>
+                      </div>
+                      <div className="text-[10px] text-slate-400 mt-0.5">{mem.discountDescription}</div>
+                    </div>
+                  </label>
+                );
+              })}
             </div>
           </div>
 

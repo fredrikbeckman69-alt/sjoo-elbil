@@ -58,6 +58,7 @@ import {
   setActiveSyncUser,
   SyncStatus,
 } from './services/cloudSyncService';
+import { getHomePriceForArea } from './services/spotPriceService';
 
 const ChargingMap = React.lazy(() => import('./components/ChargingMap'));
 
@@ -478,9 +479,11 @@ export const App: React.FC = () => {
     fuelPrice.pricePerLiter
   );
 
-  // Hitta hemmataxa från aktiva scenarier för att skicka till kalkylatorn
+  // Hitta hemmataxa från elområde eller aktiva scenarier för att skicka till kalkylatorn
   const homeScenario = scenarios.find((s) => s.id.includes('home') || s.name.toLowerCase().includes('hemma')) || scenarios[0];
-  const homePrice = homeScenario ? homeScenario.pricePerKwh : 1.15;
+  const homePrice = currentUser?.electricityArea
+    ? getHomePriceForArea(currentUser.electricityArea, true)
+    : (homeScenario ? homeScenario.pricePerKwh : 1.15);
 
   // Förstasida: Inloggning och fordonsval med siffersats
   // Blockerar 100% av appen tills giltig 4-siffrig pinkod slagits in
@@ -644,6 +647,8 @@ export const App: React.FC = () => {
               homePricePerKwh={homePrice}
               petrolPricePerLiter={fuelPrice.pricePerLiter}
               onSwitchToMapTab={() => handleTabChange('map')}
+              activeMemberships={currentUser?.activeMemberships}
+              electricityArea={currentUser?.electricityArea}
             />
 
         {/* 5. Road Trip Checklist for Occasional Long Drivers */}

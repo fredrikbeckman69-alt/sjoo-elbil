@@ -22,8 +22,14 @@ import {
   Compass,
   Map,
   CheckCircle,
+  Share2,
+  Copy,
+  Check,
+  Printer,
+  Star,
+  X,
 } from 'lucide-react';
-import { VehicleProfile, TripConditions } from '../types';
+import { VehicleProfile, TripConditions, StationFacility } from '../types';
 import { ChargingOperator } from '../types/chargingOperators';
 import { SWEDISH_CHARGING_OPERATORS } from '../data/chargingOperatorsData';
 import { fetchCurrentOperatorPrices } from '../services/operatorPriceService';
@@ -38,6 +44,8 @@ import {
   calculateRange,
   kwhPer100KmToKwhPerMil,
 } from '../utils/calculations';
+import { PlaceAutocomplete } from './PlaceAutocomplete';
+import { POPULAR_MEMBERSHIPS } from '../services/spotPriceService';
 
 export interface UnifiedTripPlannerProps {
   vehicle: VehicleProfile;
@@ -59,6 +67,8 @@ export interface UnifiedTripPlannerProps {
   homePricePerKwh?: number;
   petrolPricePerLiter?: number;
   onSwitchToMapTab?: () => void;
+  activeMemberships?: string[];
+  electricityArea?: 'SE1' | 'SE2' | 'SE3' | 'SE4';
 }
 
 const ALL_OPERATORS_CHOICE: ChargingOperator = {
@@ -109,11 +119,40 @@ export const UnifiedTripPlanner: React.FC<UnifiedTripPlannerProps> = ({
   homePricePerKwh = 1.15,
   petrolPricePerLiter = 17.59,
   onSwitchToMapTab,
+  activeMemberships = [],
+  electricityArea = 'SE3',
 }) => {
   // Lokala tillstånd för batterireglage
   const [startBatteryPercent, setStartBatteryPercent] = useState<number>(100);
   const [arrivalBufferPercent, setArrivalBufferPercent] = useState<number>(15);
   const [showVehicleSettings, setShowVehicleSettings] = useState<boolean>(false);
+
+  // Delnings- och favoritresorstillstånd
+  const [isShareModalOpen, setIsShareModalOpen] = useState<boolean>(false);
+  const [copyFeedback, setCopyFeedback] = useState<boolean>(false);
+  const [favoriteDests, setFavoriteDests] = useState<string[]>(() => {
+    try {
+      const stored = localStorage.getItem('elbil_favorite_destinations');
+      return stored ? JSON.parse(stored) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  const toggleFavoriteDest = (place: string) => {
+    const trimmed = place.trim();
+    if (!trimmed) return;
+    setFavoriteDests((prev) => {
+      const exists = prev.some((p) => p.toLowerCase() === trimmed.toLowerCase());
+      const next = exists
+        ? prev.filter((p) => p.toLowerCase() !== trimmed.toLowerCase())
+        : [trimmed, ...prev].slice(0, 10);
+      try {
+        localStorage.setItem('elbil_favorite_destinations', JSON.stringify(next));
+      } catch {}
+      return next;
+    });
+  };
 
   // Operatörstillstånd
   const [operators, setOperators] = useState<ChargingOperator[]>([
@@ -212,6 +251,7 @@ export const UnifiedTripPlanner: React.FC<UnifiedTripPlannerProps> = ({
       conditions,
       startBatteryPercent,
       targetArrivalBufferPercent: arrivalBufferPercent,
+      activeMemberships,
     });
   }, [
     routeResult,
@@ -225,7 +265,68 @@ export const UnifiedTripPlanner: React.FC<UnifiedTripPlannerProps> = ({
     conditions,
     startBatteryPercent,
     arrivalBufferPercent,
+    activeMemberships,
   ]);
+
+  const generateShareSummaryText = () => {
+    const lines: string[] = [];
+    lines.push(`⚡ RESPLAN ELBIL (${vehicle.name})`);
+    lines.push(`📍 Rutt: ${startAddress} ➔ ${destAddress}`);
+    lines.push(`📏 Körsträcka: ${distanceMil} mil${isRoundTrip ? ' (Tur & Retur)' : ''}`);
+    if (routeResult?.durationText) {
+      lines.push(`⏱️ Körtid: ${isRoundTrip ? `${formatDuration(routeResult.durationSeconds * 2)} (t&r)` : routeResult.durationText}`);
+    }
+    lines.push(`🔋 Startladdning: ${startBatteryPercent}%`);
+    lines.push(`💰 Beräknad reskostnad: ${optimizationResult.totalTripCostSek} kr (${optimizationResult.costPerMilSek} kr/mil)`);
+
+    if (optimizationResult.stops.length === 0) {
+      lines.push(`✅ Hela resan klaras utan laddstopp!`);
+    } else {
+      lines.push(`\n🔌 LADDSTOPP (${optimizationResult.stops.length} st, total laddtid ~${optimizationResult.totalChargingTimeMinutes} min):`);
+      optimizationResult.stops.forEach((s, idx) => {
+        lines.push(`${idx + 1}. ${s.station.name}`);
+        lines.push(`   Plats: ${s.address || s.streetAndCity}`);
+        lines.push(`   Laddning: ${s.batteryArrivalPercent}% ➔ ${s.batteryDeparturePercent}% (+${s.kwhToCharge} kWh)`);
+        lines.push(`   Laddtid: ~${s.chargingTimeMinutes} min | Kostnad: ${s.costSek} kr`);
+        lines.push(`   Google Maps: https://www.google.com/maps/search/?api=1&query=${encodeURIComponent((s.address || s.streetAndCity) + ' ' + s.station.name)}`);
+        lines.push(`   Apple Maps: https://maps.apple.com/?q=${encodeURIComponent((s.address || s.streetAndCity) + ' ' + s.station.name)}`);
+        lines.push(`   Waze: https://waze.com/ul?q=${encodeURIComponent((s.address || s.streetAndCity) + ' ' + s.station.name)}`);
+      });
+    }
+
+    lines.push(`\nBeräknad med Elbilskalkylator`);
+    return lines.join('\n');
+  };
+
+  const handleShareTrip = async () => {
+    const text = generateShareSummaryText();
+    if (typeof navigator !== 'undefined' && navigator.share) {
+      try {
+        await navigator.share({
+          title: `Resplan: ${startAddress} till ${destAddress}`,
+          text,
+        });
+        return;
+      } catch (err: any) {
+        if (err.name !== 'AbortError') {
+          setIsShareModalOpen(true);
+        }
+      }
+    } else {
+      setIsShareModalOpen(true);
+    }
+  };
+
+  const handleCopyShareText = async () => {
+    const text = generateShareSummaryText();
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopyFeedback(true);
+      setTimeout(() => setCopyFeedback(false), 2500);
+    } catch (e) {
+      console.warn('Kunde inte kopiera till urklipp', e);
+    }
+  };
 
   // Kostnad för motsvarande bensinbil (0.65 l/mil)
   const petrolTripCost = Number((distanceMil * 0.65 * petrolPricePerLiter).toFixed(0));
@@ -446,52 +547,125 @@ export const UnifiedTripPlanner: React.FC<UnifiedTripPlannerProps> = ({
         {/* Adressinmatning & Formulär */}
         <form onSubmit={handleSearchRoute} className="space-y-3">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            {/* Startadress */}
+            {/* Startadress med autokomplettering */}
             <div>
-              <label className="block text-[11px] font-medium text-slate-400 mb-1 flex items-center gap-1.5">
-                <MapPin className="w-3.5 h-3.5 text-emerald-400" />
-                Startadress (Stad eller gata)
-              </label>
-              <input
-                type="text"
+              <PlaceAutocomplete
                 value={startAddress}
-                onChange={(e) => {
-                  onStartAddressChange(e.target.value);
+                onChange={(val) => {
+                  onStartAddressChange(val);
                   if (routeError) setRouteError(null);
                 }}
+                label="Startadress (Stad eller gata)"
                 placeholder="T.ex. Skövde, Sverige eller hemadress"
-                className="w-full bg-slate-900 border border-slate-700/80 rounded-xl px-3.5 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500 transition"
+                icon={<MapPin className="w-3.5 h-3.5 text-emerald-400" />}
               />
             </div>
 
-            {/* Destinationsadress */}
-            <div className="relative">
-              <label className="block text-[11px] font-medium text-slate-400 mb-1 flex items-center justify-between">
-                <span className="flex items-center gap-1.5">
+            {/* Destinationsadress med autokomplettering */}
+            <div>
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-[11px] font-medium text-slate-400 flex items-center gap-1.5">
                   <MapPin className="w-3.5 h-3.5 text-rose-400" />
                   Destination (Mål)
                 </span>
-                <button
-                  type="button"
-                  onClick={handleSwapAddresses}
-                  className="text-[10px] text-cyan-400 hover:text-cyan-300 flex items-center gap-1 hover:underline"
-                  title="Växla start och destination"
-                >
-                  <ArrowRightLeft className="w-3 h-3" />
-                  <span>Växla</span>
-                </button>
-              </label>
-              <input
-                type="text"
+                <div className="flex items-center gap-2">
+                  {destAddress.trim().length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => toggleFavoriteDest(destAddress)}
+                      className={`text-[10px] flex items-center gap-1 cursor-pointer transition ${
+                        favoriteDests.some((f) => f.toLowerCase() === destAddress.trim().toLowerCase())
+                          ? 'text-amber-400 font-bold'
+                          : 'text-slate-400 hover:text-amber-300'
+                      }`}
+                      title={
+                        favoriteDests.some((f) => f.toLowerCase() === destAddress.trim().toLowerCase())
+                          ? 'Ta bort från favoriter'
+                          : 'Spara som favoritresmål'
+                      }
+                    >
+                      <Star
+                        className={`w-3 h-3 ${
+                          favoriteDests.some((f) => f.toLowerCase() === destAddress.trim().toLowerCase())
+                            ? 'fill-amber-400 text-amber-400'
+                            : ''
+                        }`}
+                      />
+                      <span>
+                        {favoriteDests.some((f) => f.toLowerCase() === destAddress.trim().toLowerCase())
+                          ? 'Sparad'
+                          : 'Favorit'}
+                      </span>
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={handleSwapAddresses}
+                    className="text-[10px] text-cyan-400 hover:text-cyan-300 flex items-center gap-1 hover:underline cursor-pointer"
+                    title="Växla start och destination"
+                  >
+                    <ArrowRightLeft className="w-3 h-3" />
+                    <span>Växla</span>
+                  </button>
+                </div>
+              </div>
+              <PlaceAutocomplete
                 value={destAddress}
-                onChange={(e) => {
-                  onDestAddressChange(e.target.value);
+                onChange={(val) => {
+                  onDestAddressChange(val);
                   if (routeError) setRouteError(null);
                 }}
                 placeholder="T.ex. Pajala, Göteborg eller Malmö"
-                className="w-full bg-slate-900 border border-slate-700/80 rounded-xl px-3.5 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500 transition"
+                icon={<MapPin className="w-3.5 h-3.5 text-rose-400" />}
               />
             </div>
+          </div>
+
+          {/* Snabbval / Favoritresor */}
+          <div className="flex flex-wrap items-center gap-1.5 pt-0.5 text-xs">
+            <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 mr-1 flex items-center gap-1">
+              <Star className="w-3 h-3 text-amber-400" />
+              Snabbval:
+            </span>
+            {/* Egna sparade favoriter först */}
+            {favoriteDests.map((fav) => (
+              <button
+                key={`fav-${fav}`}
+                type="button"
+                onClick={() => {
+                  onDestAddressChange(fav);
+                  if (routeError) setRouteError(null);
+                }}
+                className={`px-2 py-0.5 rounded-lg border text-[11px] font-medium transition cursor-pointer flex items-center gap-1 ${
+                  destAddress.toLowerCase().includes(fav.toLowerCase())
+                    ? 'bg-amber-500/20 text-amber-300 border-amber-500/50 shadow-xs'
+                    : 'bg-slate-900 border-slate-700/80 text-amber-200 hover:border-amber-500/40 hover:text-white'
+                }`}
+              >
+                <Star className="w-2.5 h-2.5 fill-amber-400 text-amber-400" />
+                <span>{fav}</span>
+              </button>
+            ))}
+            {/* Populära standardorter */}
+            {['Göteborg', 'Stockholm', 'Malmö', 'Jönköping', 'Sälen', 'Åre', 'Pajala']
+              .filter((d) => !favoriteDests.some((f) => f.toLowerCase() === d.toLowerCase()))
+              .map((place) => (
+                <button
+                  key={place}
+                  type="button"
+                  onClick={() => {
+                    onDestAddressChange(place);
+                    if (routeError) setRouteError(null);
+                  }}
+                  className={`px-2 py-0.5 rounded-lg border text-[11px] font-medium transition cursor-pointer ${
+                    destAddress.toLowerCase().includes(place.toLowerCase())
+                      ? 'bg-cyan-500/20 text-cyan-300 border-cyan-500/50 shadow-xs'
+                      : 'bg-slate-900 border-slate-800 text-slate-300 hover:border-slate-700 hover:text-white'
+                  }`}
+                >
+                  {place}
+                </button>
+              ))}
           </div>
 
           {/* Delresmål (Waypoints) */}
@@ -525,14 +699,14 @@ export const UnifiedTripPlanner: React.FC<UnifiedTripPlannerProps> = ({
             </div>
           )}
 
-          {/* Enkel resa vs Tur & Retur + Lägg till delmål + Beräkna-knapp */}
+          {/* Enkel resa vs Tur & Retur + Ruttval + Lägg till delmål + Beräkna-knapp */}
           <div className="flex flex-wrap items-center justify-between gap-2.5 pt-1">
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               {waypoints.length < 5 && onWaypointsChange && (
                 <button
                   type="button"
                   onClick={handleAddWaypoint}
-                  className="text-xs font-semibold text-cyan-400 hover:text-cyan-300 flex items-center gap-1.5 bg-cyan-500/10 hover:bg-cyan-500/20 px-3 py-2 rounded-xl border border-cyan-500/20 transition active:scale-95"
+                  className="text-xs font-semibold text-cyan-400 hover:text-cyan-300 flex items-center gap-1.5 bg-cyan-500/10 hover:bg-cyan-500/20 px-3 py-2 rounded-xl border border-cyan-500/20 transition active:scale-95 cursor-pointer"
                 >
                   <Plus className="w-3.5 h-3.5" />
                   <span>Lägg till via-stopp</span>
@@ -544,7 +718,7 @@ export const UnifiedTripPlanner: React.FC<UnifiedTripPlannerProps> = ({
                 <button
                   type="button"
                   onClick={() => handleToggleRoundTrip(false)}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition ${
+                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer ${
                     !isRoundTrip
                       ? 'bg-slate-800 text-white shadow'
                       : 'text-slate-400 hover:text-slate-200'
@@ -555,7 +729,7 @@ export const UnifiedTripPlanner: React.FC<UnifiedTripPlannerProps> = ({
                 <button
                   type="button"
                   onClick={() => handleToggleRoundTrip(true)}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1 transition ${
+                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1 transition cursor-pointer ${
                     isRoundTrip
                       ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 shadow'
                       : 'text-slate-400 hover:text-slate-200'
@@ -563,6 +737,35 @@ export const UnifiedTripPlanner: React.FC<UnifiedTripPlannerProps> = ({
                 >
                   <ArrowLeftRight className="w-3 h-3 text-cyan-400" />
                   <span>Tur & Retur (2x)</span>
+                </button>
+              </div>
+
+              {/* Ruttval: Snabbast vs Energisnål */}
+              <div className="inline-flex rounded-xl bg-slate-900 p-0.5 border border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => onConditionsChange({ ...conditions, routePreference: 'fastest' })}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer ${
+                    conditions.routePreference !== 'eco'
+                      ? 'bg-slate-800 text-white shadow'
+                      : 'text-slate-400 hover:text-slate-200'
+                  }`}
+                  title="Snabbaste vägen via motorväg i 110-120 km/h"
+                >
+                  Snabbast (Motorväg)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onConditionsChange({ ...conditions, routePreference: 'eco' })}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1 transition cursor-pointer ${
+                    conditions.routePreference === 'eco'
+                      ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 shadow'
+                      : 'text-slate-400 hover:text-slate-200'
+                  }`}
+                  title="Energisnål rutt (landsväg / eco-fart, sparar ca 10% förbrukning)"
+                >
+                  <Sparkles className="w-3 h-3 text-emerald-400" />
+                  <span>Energisnål (-10%)</span>
                 </button>
               </div>
             </div>
@@ -917,6 +1120,22 @@ export const UnifiedTripPlanner: React.FC<UnifiedTripPlannerProps> = ({
           </div>
         </div>
 
+        {/* Aktiva medlemskap från profilen */}
+        {activeMemberships && activeMemberships.length > 0 && (
+          <div className="flex flex-wrap items-center gap-1.5 p-2 rounded-xl bg-emerald-950/20 border border-emerald-500/30 text-xs">
+            <span className="text-[10px] text-emerald-400 font-semibold uppercase tracking-wider">Mina laddförmåner:</span>
+            {activeMemberships.map((mId) => {
+              const mem = POPULAR_MEMBERSHIPS.find((m) => m.id === mId);
+              if (!mem) return null;
+              return (
+                <span key={mId} className="px-2 py-0.5 rounded-md bg-emerald-500/10 border border-emerald-500/20 text-emerald-300 text-[10px] font-medium">
+                  {mem.name}
+                </span>
+              );
+            })}
+          </div>
+        )}
+
         {/* Sök och välj bland operatörer */}
         <div className="space-y-2.5">
           <input
@@ -1007,14 +1226,23 @@ export const UnifiedTripPlanner: React.FC<UnifiedTripPlannerProps> = ({
                   <span className="text-xs font-semibold text-cyan-400 bg-cyan-500/10 px-2.5 py-1 rounded-lg border border-cyan-500/20 font-mono-numbers">
                     Total laddtid: ~{optimizationResult.totalChargingTimeMinutes} min
                   </span>
+                  <button
+                    type="button"
+                    onClick={handleShareTrip}
+                    className="text-xs font-semibold text-white bg-gradient-to-r from-cyan-600 to-emerald-600 hover:from-cyan-500 hover:to-emerald-500 px-2.5 py-1 rounded-lg border border-cyan-500/30 transition flex items-center gap-1 shadow-sm active:scale-95 cursor-pointer"
+                    title="Dela resplan via SMS/iMessage, WhatsApp, kopiera eller skriv ut"
+                  >
+                    <Share2 className="w-3.5 h-3.5" />
+                    <span>Dela</span>
+                  </button>
                   {onSwitchToMapTab && (
                     <button
                       type="button"
                       onClick={onSwitchToMapTab}
-                      className="text-xs font-semibold text-emerald-400 hover:text-emerald-300 bg-emerald-500/10 hover:bg-emerald-500/20 px-2.5 py-1 rounded-lg border border-emerald-500/20 transition flex items-center gap-1"
+                      className="text-xs font-semibold text-emerald-400 hover:text-emerald-300 bg-emerald-500/10 hover:bg-emerald-500/20 px-2.5 py-1 rounded-lg border border-emerald-500/20 transition flex items-center gap-1 cursor-pointer"
                     >
                       <Map className="w-3.5 h-3.5" />
-                      <span>Visa på karta</span>
+                      <span>Karta</span>
                     </button>
                   )}
                 </div>
@@ -1022,88 +1250,154 @@ export const UnifiedTripPlanner: React.FC<UnifiedTripPlannerProps> = ({
 
               {/* Lista över laddstopp */}
               <div className="space-y-2.5">
-                {optimizationResult.stops.map((stop: OptimalChargingStop, index: number) => (
-                  <div
-                    key={index}
-                    className="bg-slate-900 border border-slate-800 hover:border-slate-700 rounded-xl p-3.5 space-y-2.5 transition shadow-sm"
-                  >
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="flex items-start gap-2.5 min-w-0 flex-1">
-                        <div className="w-6 h-6 rounded-lg bg-amber-500/20 text-amber-300 font-bold flex items-center justify-center shrink-0 border border-amber-500/30 text-xs mt-0.5">
-                          {index + 1}
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <div className="flex flex-wrap items-center gap-2 font-bold text-white text-sm">
-                            <span>{stop.station.name}</span>
-                            {stop.powerKw > 0 && (
-                              <span className="text-[10px] px-2 py-0.5 rounded-full bg-cyan-500/10 text-cyan-300 border border-cyan-500/30 font-mono-numbers">
-                                {stop.powerKw} kW
-                              </span>
-                            )}
+                {optimizationResult.stops.map((stop: OptimalChargingStop, index: number) => {
+                  const mapQuery = `${stop.address || stop.streetAndCity} ${stop.station.name}`;
+                  const googleMapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(mapQuery)}`;
+                  const appleMapsUrl = `https://maps.apple.com/?q=${encodeURIComponent(mapQuery)}`;
+                  const wazeUrl = `https://waze.com/ul?q=${encodeURIComponent(mapQuery)}`;
+                  const facs = stop.facilities && stop.facilities.length > 0 ? stop.facilities : (['wc', 'food'] as StationFacility[]);
+
+                  return (
+                    <div
+                      key={index}
+                      className="bg-slate-900 border border-slate-800 hover:border-slate-700 rounded-xl p-3.5 space-y-2.5 transition shadow-sm"
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex items-start gap-2.5 min-w-0 flex-1">
+                          <div className="w-6 h-6 rounded-lg bg-amber-500/20 text-amber-300 font-bold flex items-center justify-center shrink-0 border border-amber-500/30 text-xs mt-0.5">
+                            {index + 1}
                           </div>
-
-                          {/* Adress & Milstolpe */}
-                          <div className="mt-1 space-y-0.5 text-xs">
-                            <div className="flex items-start gap-1.5 text-slate-200">
-                              <MapPin className="w-3.5 h-3.5 text-rose-400 shrink-0 mt-0.5" />
-                              <div className="min-w-0 flex-1">
-                                <span className="font-medium text-white">
-                                  {stop.address || stop.streetAndCity}
+                          <div className="min-w-0 flex-1">
+                            <div className="flex flex-wrap items-center gap-2 font-bold text-white text-sm">
+                              <span>{stop.station.name}</span>
+                              {stop.powerKw > 0 && (
+                                <span className="text-[10px] px-2 py-0.5 rounded-full bg-cyan-500/10 text-cyan-300 border border-cyan-500/30 font-mono-numbers">
+                                  {stop.powerKw} kW
                                 </span>
-                              </div>
-                              <a
-                                href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
-                                  (stop.address || stop.streetAndCity) + ' ' + stop.station.name
-                                )}`}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="text-[10px] text-cyan-400 hover:text-cyan-300 hover:underline flex items-center gap-0.5 shrink-0 bg-slate-950 border border-slate-700/80 px-2 py-0.5 rounded-md"
-                              >
-                                <span>Karta</span>
-                                <ExternalLink className="w-2.5 h-2.5" />
-                              </a>
-                            </div>
-
-                            <div className="text-[11px] text-slate-400 pl-5">
-                              <span className="text-amber-400 font-mono-numbers font-medium">
-                                Stopp efter {stop.milestoneMil} mil ({Math.round(stop.milestoneMil * 10)} km)
-                              </span>
-                              {stop.city && (
-                                <>
-                                  <span className="mx-1 text-slate-600">•</span>
-                                  <span className="text-slate-300">{stop.city}</span>
-                                </>
                               )}
                             </div>
+
+                            {/* Adress & Milstolpe */}
+                            <div className="mt-1 space-y-1 text-xs">
+                              <div className="flex items-start gap-1.5 text-slate-200">
+                                <MapPin className="w-3.5 h-3.5 text-rose-400 shrink-0 mt-0.5" />
+                                <div className="min-w-0 flex-1">
+                                  <span className="font-medium text-white">
+                                    {stop.address || stop.streetAndCity}
+                                  </span>
+                                </div>
+                              </div>
+
+                              <div className="text-[11px] text-slate-400 pl-5">
+                                <span className="text-amber-400 font-mono-numbers font-medium">
+                                  Stopp efter {stop.milestoneMil} mil ({Math.round(stop.milestoneMil * 10)} km)
+                                </span>
+                                {stop.city && (
+                                  <>
+                                    <span className="mx-1 text-slate-600">•</span>
+                                    <span className="text-slate-300">{stop.city}</span>
+                                  </>
+                                )}
+                              </div>
+
+                              {/* 3 Kartalternativ per laddstopp */}
+                              <div className="flex flex-wrap items-center gap-1.5 pl-5 pt-0.5">
+                                <a
+                                  href={googleMapsUrl}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-[10px] text-cyan-400 hover:text-cyan-300 bg-slate-950 border border-slate-700/80 px-2 py-0.5 rounded-md flex items-center gap-1 transition cursor-pointer"
+                                  title="Öppna i Google Maps"
+                                >
+                                  <span>Google Maps</span>
+                                  <ExternalLink className="w-2.5 h-2.5" />
+                                </a>
+                                <a
+                                  href={appleMapsUrl}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-[10px] text-slate-300 hover:text-white bg-slate-950 border border-slate-700/80 px-2 py-0.5 rounded-md flex items-center gap-1 transition cursor-pointer"
+                                  title="Öppna i Apple Kartor (iOS / Mac)"
+                                >
+                                  <span>Apple Kartor</span>
+                                  <ExternalLink className="w-2.5 h-2.5" />
+                                </a>
+                                <a
+                                  href={wazeUrl}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-[10px] text-cyan-300 hover:text-cyan-200 bg-slate-950 border border-slate-700/80 px-2 py-0.5 rounded-md flex items-center gap-1 transition cursor-pointer"
+                                  title="Öppna i Waze"
+                                >
+                                  <span>Waze</span>
+                                  <ExternalLink className="w-2.5 h-2.5" />
+                                </a>
+                              </div>
+                            </div>
                           </div>
+                        </div>
+
+                        {/* Kostnad för stoppet */}
+                        <div className="bg-slate-950 border border-slate-800 rounded-lg px-3 py-1.5 text-right shrink-0">
+                          <span className="text-xs text-slate-400 block">Laddkostnad</span>
+                          <span className="text-sm font-bold text-amber-300 font-mono-numbers">
+                            {stop.costSek} kr
+                          </span>
                         </div>
                       </div>
 
-                      {/* Kostnad för stoppet */}
-                      <div className="bg-slate-950 border border-slate-800 rounded-lg px-3 py-1.5 text-right shrink-0">
-                        <span className="text-xs text-slate-400 block">Laddkostnad</span>
-                        <span className="text-sm font-bold text-amber-300 font-mono-numbers">
-                          {stop.costSek} kr
-                        </span>
+                      {/* Faciliteter vid laddstoppet */}
+                      <div className="flex flex-wrap items-center gap-1.5 pl-8 pt-1 text-[10px]">
+                        <span className="text-slate-500 font-medium">Faciliteter:</span>
+                        {facs.includes('wc') && (
+                          <span className="inline-flex items-center gap-1 px-1.5 py-0.2 rounded bg-slate-950 border border-slate-800 text-slate-300">
+                            <span>🚻</span>
+                            <span>Toalett</span>
+                          </span>
+                        )}
+                        {facs.includes('food') && (
+                          <span className="inline-flex items-center gap-1 px-1.5 py-0.2 rounded bg-slate-950 border border-slate-800 text-amber-300">
+                            <span>🍔</span>
+                            <span>Mat & Rast</span>
+                          </span>
+                        )}
+                        {facs.includes('coffee') && (
+                          <span className="inline-flex items-center gap-1 px-1.5 py-0.2 rounded bg-slate-950 border border-slate-800 text-amber-200">
+                            <span>☕</span>
+                            <span>Kaffe</span>
+                          </span>
+                        )}
+                        {facs.includes('playground') && (
+                          <span className="inline-flex items-center gap-1 px-1.5 py-0.2 rounded bg-slate-950 border border-slate-800 text-emerald-300">
+                            <span>🛝</span>
+                            <span>Lekplats</span>
+                          </span>
+                        )}
+                        {facs.includes('shop') && (
+                          <span className="inline-flex items-center gap-1 px-1.5 py-0.2 rounded bg-slate-950 border border-slate-800 text-cyan-300">
+                            <span>🛒</span>
+                            <span>Butik</span>
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Batteri- och tidsdetaljer */}
+                      <div className="pt-2 border-t border-slate-800/80 flex flex-wrap items-center justify-between gap-2 text-xs">
+                        <div className="flex items-center gap-1.5 text-slate-300 font-mono-numbers bg-slate-950 px-2.5 py-1 rounded-lg border border-slate-800">
+                          <BatteryCharging className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                          <span>Ladda {stop.batteryArrivalPercent}% ➔ {stop.batteryDeparturePercent}%</span>
+                          <span className="text-slate-500">|</span>
+                          <span className="text-emerald-400 font-semibold">+{stop.kwhToCharge} kWh</span>
+                        </div>
+
+                        <div className="flex items-center gap-1.5 text-slate-300 font-mono-numbers bg-slate-950 px-2.5 py-1 rounded-lg border border-slate-800">
+                          <Clock className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
+                          <span>Laddtid: ~{stop.chargingTimeMinutes} min</span>
+                        </div>
                       </div>
                     </div>
-
-                    {/* Batteri- och tidsdetaljer */}
-                    <div className="pt-2 border-t border-slate-800/80 flex flex-wrap items-center justify-between gap-2 text-xs">
-                      <div className="flex items-center gap-1.5 text-slate-300 font-mono-numbers bg-slate-950 px-2.5 py-1 rounded-lg border border-slate-800">
-                        <BatteryCharging className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                        <span>Ladda {stop.batteryArrivalPercent}% ➔ {stop.batteryDeparturePercent}%</span>
-                        <span className="text-slate-500">|</span>
-                        <span className="text-emerald-400 font-semibold">+{stop.kwhToCharge} kWh</span>
-                      </div>
-
-                      <div className="flex items-center gap-1.5 text-slate-300 font-mono-numbers bg-slate-950 px-2.5 py-1 rounded-lg border border-slate-800">
-                        <Clock className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
-                        <span>Laddtid: ~{stop.chargingTimeMinutes} min</span>
-                      </div>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           ) : (
@@ -1154,15 +1448,26 @@ export const UnifiedTripPlanner: React.FC<UnifiedTripPlannerProps> = ({
             </div>
           </div>
 
-          {/* Huvudsumma */}
-          <div className="text-right">
-            <div className="flex items-baseline justify-end gap-2">
-              <span className="text-3xl font-black text-white font-mono-numbers tracking-tight">
-                {optimizationResult.totalTripCostSek} kr
-              </span>
-              <span className="text-xs font-semibold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20 font-mono-numbers">
-                {optimizationResult.costPerMilSek} kr/mil
-              </span>
+          {/* Huvudsumma & Dela */}
+          <div className="flex flex-wrap items-center justify-end gap-3">
+            <button
+              type="button"
+              onClick={handleShareTrip}
+              className="py-2 px-3.5 rounded-xl bg-gradient-to-r from-cyan-600 to-emerald-600 hover:from-cyan-500 hover:to-emerald-500 text-slate-950 font-bold text-xs flex items-center gap-1.5 transition active:scale-95 shadow-md shadow-cyan-500/10 cursor-pointer"
+              title="Dela resplan via SMS/iMessage, WhatsApp, kopiera text eller skriv ut"
+            >
+              <Share2 className="w-3.5 h-3.5" />
+              <span>Dela resplan</span>
+            </button>
+            <div className="text-right">
+              <div className="flex items-baseline justify-end gap-2">
+                <span className="text-3xl font-black text-white font-mono-numbers tracking-tight">
+                  {optimizationResult.totalTripCostSek} kr
+                </span>
+                <span className="text-xs font-semibold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20 font-mono-numbers">
+                  {optimizationResult.costPerMilSek} kr/mil
+                </span>
+              </div>
             </div>
           </div>
         </div>
@@ -1174,7 +1479,9 @@ export const UnifiedTripPlanner: React.FC<UnifiedTripPlannerProps> = ({
             <div className="flex items-center gap-2.5">
               <div className="w-3 h-3 rounded-full bg-emerald-400 shrink-0" />
               <div>
-                <div className="font-semibold text-slate-200">Start från hemmet</div>
+                <div className="font-semibold text-slate-200">
+                  Start från hemmet ({electricityArea})
+                </div>
                 <div className="text-[11px] text-slate-400 font-mono-numbers">
                   {optimizationResult.homeChargeKwh} kWh à {homePricePerKwh.toFixed(2)} kr/kWh
                 </div>
@@ -1237,6 +1544,75 @@ export const UnifiedTripPlanner: React.FC<UnifiedTripPlannerProps> = ({
           )}
         </div>
       </div>
+
+      {/* Modal: Dela resplan */}
+      {isShareModalOpen && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-lg w-full p-5 sm:p-6 shadow-2xl relative space-y-4 animate-in fade-in zoom-in-95">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+              <div className="flex items-center gap-2">
+                <div className="p-2 rounded-xl bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">
+                  <Share2 className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-white">Dela resplan</h3>
+                  <p className="text-xs text-slate-400">Kopiera eller skriv ut resplanen</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsShareModalOpen(false)}
+                className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Förhandsgranskning av text */}
+            <div>
+              <label className="block text-[11px] font-semibold text-slate-300 mb-1.5">
+                Sammanställning för SMS / Meddelande / Mail:
+              </label>
+              <textarea
+                readOnly
+                value={generateShareSummaryText()}
+                rows={10}
+                className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-xs text-slate-200 font-mono focus:outline-none select-all"
+              />
+            </div>
+
+            {/* Handlingsknappar */}
+            <div className="flex flex-col sm:flex-row items-center gap-2 pt-1">
+              <button
+                type="button"
+                onClick={handleCopyShareText}
+                className="w-full sm:flex-1 py-2.5 px-4 rounded-xl bg-gradient-to-r from-cyan-500 to-emerald-500 hover:from-cyan-400 hover:to-emerald-400 text-slate-950 font-bold text-xs flex items-center justify-center gap-1.5 shadow transition cursor-pointer"
+              >
+                {copyFeedback ? (
+                  <>
+                    <Check className="w-4 h-4 text-slate-950" />
+                    <span>Kopierad till urklipp!</span>
+                  </>
+                ) : (
+                  <>
+                    <Copy className="w-4 h-4" />
+                    <span>Kopiera text</span>
+                  </>
+                )}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => window.print()}
+                className="w-full sm:w-auto py-2.5 px-4 rounded-xl bg-slate-850 hover:bg-slate-800 border border-slate-700 text-slate-200 font-bold text-xs flex items-center justify-center gap-1.5 transition cursor-pointer"
+              >
+                <Printer className="w-4 h-4 text-slate-400" />
+                <span>Skriv ut / PDF</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

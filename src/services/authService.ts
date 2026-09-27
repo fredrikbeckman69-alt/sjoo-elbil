@@ -250,7 +250,7 @@ export function setLastSelectedVehicleId(vehicleId: string): void {
  */
 export async function updateAccountProfile(
   id: string,
-  updates: Partial<Pick<UserAccount, 'ownerName' | 'photoUrl' | 'name' | 'pinCode'>>
+  updates: Partial<Pick<UserAccount, 'ownerName' | 'photoUrl' | 'name' | 'pinCode' | 'activeMemberships' | 'electricityArea' | 'vehicleProfile'>>
 ): Promise<UserAccount> {
   const accounts = await getUserAccounts();
   const index = accounts.findIndex((a) => a.id.toUpperCase() === id.toUpperCase());
@@ -260,6 +260,7 @@ export async function updateAccountProfile(
   const cleanedName = updates.name !== undefined ? cleanVehicleDisplayName(updates.name, current.regnr) : current.name;
   const updatedVehicleProfile = {
     ...current.vehicleProfile,
+    ...(updates.vehicleProfile || {}),
     ...(updates.name !== undefined ? { name: cleanedName } : {}),
     ...(updates.photoUrl !== undefined ? { photoUrl: updates.photoUrl } : {}),
   };

@@ -1,4 +1,4 @@
-import { ChargingStation, VehicleProfile, TripConditions } from '../types';
+import { ChargingStation, VehicleProfile, TripConditions, StationFacility } from '../types';
 import { getInitialChargingStations } from './chargingStations';
 import {
   calculateEffectiveConsumption,
@@ -8,6 +8,7 @@ import {
   formatPhysicalAddressForStation,
   resolveCorridorPhysicalAddress,
 } from './chargingAddressService';
+import { getEffectivePriceWithMemberships } from './spotPriceService';
 
 export interface OptimalChargingStop {
   station: ChargingStation;
@@ -24,6 +25,7 @@ export interface OptimalChargingStop {
   address: string; // Verifierad fullständig fysisk adress
   city?: string;
   coordinates?: [number, number];
+  facilities?: StationFacility[];
 }
 
 export interface RouteOptimizationResult {
@@ -124,6 +126,7 @@ export function findOptimalChargingStopsAlongRoute(params: {
   conditions: TripConditions;
   startBatteryPercent?: number; // T.ex. 100%
   targetArrivalBufferPercent?: number; // T.ex. 15%
+  activeMemberships?: string[];
 }): RouteOptimizationResult {
   const {
     routeCoordinates = [],
@@ -139,7 +142,12 @@ export function findOptimalChargingStopsAlongRoute(params: {
     conditions,
     startBatteryPercent = 100,
     targetArrivalBufferPercent = 15,
+    activeMemberships = [],
   } = params;
+
+  // Beräkna effektivt snabbladdningspris med eventuella medlemskap/laddbrickor
+  const effectivePriceInfo = getEffectivePriceWithMemberships(operatorId, pricePerKwh, activeMemberships);
+  const fastPricePerKwh = effectivePriceInfo.price;
 
   // 1. Beräkna effektiv förbrukning
   const { effectiveKwhPer100Km } = calculateEffectiveConsumption(vehicle.consumptionKwhPer100Km, conditions);
@@ -263,7 +271,8 @@ export function findOptimalChargingStopsAlongRoute(params: {
   let remainingMil = totalDistanceMil;
   let currentBatteryPercent = startBatteryPercent;
 
-  const carMaxChargePowerKw = batteryCap <= 60 ? 135 : 175;
+  const is800V = vehicle.voltageArchitecture === '800V';
+  const carMaxChargePowerKw = is800V ? 240 : (batteryCap <= 60 ? 135 : 175);
 
   // Dynamiskt tak för att skydda mot oändliga loopar utan att begränsa långa resor (t.ex. Malmö–Pajala/Treriksröset)
   const maxAllowedStops = Math.max(30, Math.ceil(totalDistanceMil / 5));
@@ -342,18 +351,36 @@ export function findOptimalChargingStopsAlongRoute(params: {
       targetDeparturePercent = Math.min(85, arrivalPercent + 10);
     }
 
-    // kWh som laddas: ALDRIG negativt
-    const kwhToCharge = Number(Math.max(0, (((targetDeparturePercent - arrivalPercent) / 100) * batteryCap)).toFixed(1));
+    // Förkonditionering vid kyla förbrukar ca 1.5 kWh för att förvärma batteripaketet
+    const precondEnergyKwh = (conditions.isWinter && conditions.preconditioning) ? 1.5 : 0;
+    const rawKwhToCharge = (((targetDeparturePercent - arrivalPercent) / 100) * batteryCap);
+    const kwhToCharge = Number(Math.max(0, rawKwhToCharge + precondEnergyKwh).toFixed(1));
 
-    // Kostnad: ALDRIG negativ! En laddning kan aldrig resultera i en minuskostnad
-    const costSek = kwhToCharge > 0 ? Math.max(0, Number((kwhToCharge * pricePerKwh + sessionFee).toFixed(0))) : 0;
+    // Kostnad: ALDRIG negativ! Använder eventuellt medlemskapspris
+    const costSek = kwhToCharge > 0 ? Math.max(0, Number((kwhToCharge * fastPricePerKwh + sessionFee).toFixed(0))) : 0;
 
     const stationPower = chosenStation
       ? getOperatorDefaultPowerKw(operatorId, chosenStation.station)
       : (operatorId === 'ionity' ? 350 : operatorId === 'tesla-supercharger' ? 250 : 150);
 
-    const effectiveChargeKw = Math.min(carMaxChargePowerKw, stationPower) * 0.78;
-    const chargingTimeMinutes = Math.max(10, Math.round((kwhToCharge / effectiveChargeKw) * 60) + 3);
+    const effectiveChargeKw = Math.min(carMaxChargePowerKw, stationPower) * (is800V ? 0.88 : 0.78);
+    let chargingTimeMinutes = Math.max(8, Math.round((kwhToCharge / effectiveChargeKw) * 60) + (is800V ? 2 : 3));
+
+    // 800V-arkitektur (Ioniq 5/6, EV6/9, Porsche Taycan): Laddar 10-80% på ca 18 min vid 250-350 kW laddare
+    if (is800V && stationPower >= 175) {
+      chargingTimeMinutes = Math.max(10, Math.round(chargingTimeMinutes * 0.68));
+    }
+
+    // Påverkan vid låga temperaturer och förkonditionering
+    if (conditions.isWinter) {
+      if (conditions.preconditioning) {
+        // Värmt batteri tar emot full laddeffekt från start, ingen köldspärr ("cold-gate")
+        chargingTimeMinutes = Math.max(10, Math.round(chargingTimeMinutes * 0.75));
+      } else {
+        // Kalla battericeller begränsar laddeffekten avsevärt under de första 10-15 minuterna
+        chargingTimeMinutes = Math.round(chargingTimeMinutes * 1.25);
+      }
+    }
 
     // Fastställ station, fysisk adress och plats
     let stationObj: ChargingStation;
@@ -372,6 +399,7 @@ export function findOptimalChargingStopsAlongRoute(params: {
         ...s,
         street: s.street || enriched.street,
         city: s.city || enriched.city,
+        facilities: enriched.facilities || s.facilities || ['wc', 'food'],
       };
     } else {
       // Hitta koordinat längs ruttlinjen om sådan finns
@@ -414,6 +442,7 @@ export function findOptimalChargingStopsAlongRoute(params: {
         maxPowerKw: stationPower,
         street: corridor.address.split(',')[0],
         city: corridor.city,
+        facilities: corridor.facilities || ['wc', 'food', 'coffee'],
       };
     }
 
@@ -432,6 +461,7 @@ export function findOptimalChargingStopsAlongRoute(params: {
       address: finalAddress,
       city: stationObj.city || undefined,
       coordinates: stopCoords,
+      facilities: stationObj.facilities,
     });
 
     currentBatteryPercent = targetDeparturePercent;
