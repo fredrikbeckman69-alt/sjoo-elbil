@@ -87,3 +87,35 @@ Projektöversikt och riktlinjer för utveckling av applikationen för mätning o
   - **Klient/Applikation:**
     - Appen läser in de senaste priserna vid uppstart (`fetchCurrentPetrolPrice()` och `fetchCurrentOperatorPrices()`).
     - En aktiv bakgrundskontroll med en timmes intervall (`setInterval(..., 3600000)`) samt kontroll vid återkomst till fliken (`visibilitychange`) säkerställer att öppna sessioner automatiskt uppdateras med de senaste priserna.
+
+---
+
+## 6. Anslutningsstabilitet, API-hälsa & Schemalagt Cron-jobb
+
+- **Bakgrund & Problembild:**
+  - Externa geokodnings- och routing-API:er (såsom publika Nominatim och OSRM) drabbas ofta av CORS-begränsningar, strikta *Rate Limits* (HTTP 429) och svarstids-timeouts när de anropas direkt från webbläsare, vilket historiskt orsakat otydliga felmeddelanden som `"Failed to fetch"`.
+- **Flerstegs feltolerant arkitektur (Multi-tier Redundans):**
+  1. **Lokal svensk ortsdatabas (`src/data/swedishPlaces.ts`):**
+     - Samtliga svenska kommuner, städer, skidorter och centrala knutpunkter finns indexerade lokalt med lat/lon och alternativa stavningar (t.ex. Malmö, Pajala, Sälen, Åre, Kiruna).
+     - Ger $0\text{ ms}$ latens, $100\%$ offline-tillgänglighet och $0$ externa anrop för alla standardresor.
+  2. **Klientcache:**
+     - Geokodade adresser sparas i minne och LocalStorage (`geo_*`) för omedelbar återanvändning.
+  3. **Photon Geocoder (Komoot):**
+     - Sekundär geokodning med stöd för CORS och geografisk avgränsning till Sverige (`bbox=11,55,24,69`).
+  4. **Nominatim Fallback med Timeout:**
+     - Tidsbegränsad (`AbortController`, max 4 sekunder) och felisolerad.
+  5. **Syntetisk Svensk Vägnätsmodell (`createSyntheticRoute`):**
+     - Om OSRM-servern är överbelastad eller otillgänglig genereras automatiskt en verifierad vägrutt baserad på Haversine med svensk vägkrökningsfaktor ($1.25\times$) och interpolerade koordinater var 15:e km.
+     - Detta säkerställer att ruttkalkylatorn och laddstationsoptimeraren (`findOptimalChargingStopsAlongRoute`) **aldrig kraschar** eller låser användaren.
+- **Automatiserat Cron-jobb för Anslutningsstabilitet:**
+  - **Frekvens:** Körs automatiskt via GitHub Actions (`.github/workflows/connection-health.yml`) med schema `cron: '30 * * * *'` (varje timme).
+  - **Funktion (`scripts/check-connection-health.mjs`):**
+    - Testar och förvärmer OSRM routing-servern, Komoot Photon, molnsynk-API och produktionssidan på GitHub Pages.
+    - Mäter latens och loggar HTTP-statuskoder.
+    - Genererar och sparar statusrapport i `public/data/connection_health.json`.
+- **Klientkeepalive & Förvärmning (`src/services/healthCheckService.ts`):**
+  - Appen initierar en bakgrundsförvärmning av anslutningar vid uppstart samt var 15:e minut och vid flikfokus (`visibilitychange`).
+  - Webbläsaren har därmed redan etablerat TLS/DNS-handslag innan användaren klickar på "Beräkna rutt".
+- **Felhantering & Användarupplevelse:**
+  - Systemfel och nätverksfel får **aldrig** visas som råa tekniska felmeddelanden (såsom `"Failed to fetch"` eller `"NetworkError"`).
+  - De ska alltid översättas till informativa, handlingsinriktade svenska instruktioner.

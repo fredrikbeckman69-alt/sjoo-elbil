@@ -109,7 +109,14 @@ export const RouteCalculator: React.FC<RouteCalculatorProps> = ({
       const targetDist = isRoundTrip ? Number((res.distanceMil * 2).toFixed(2)) : res.distanceMil;
       onDistanceChange(targetDist);
     } catch (err: any) {
-      setError(err?.message || 'Ett fel uppstod vid beräkning av rutt. Kontrollera adresserna.');
+      const raw = String(err?.message || '');
+      let friendly = 'Ett fel uppstod vid beräkning av rutt. Kontrollera adresserna.';
+      if (raw.toLowerCase().includes('failed to fetch') || raw.toLowerCase().includes('networkerror') || raw.toLowerCase().includes('load failed')) {
+        friendly = 'Nätverksanslutningen kunde inte nå den externa karttjänsten. Kontrollera stavning eller internetuppkoppling.';
+      } else if (raw) {
+        friendly = raw;
+      }
+      setError(friendly);
     } finally {
       setLoading(false);
     }
@@ -186,7 +193,7 @@ export const RouteCalculator: React.FC<RouteCalculatorProps> = ({
               type="text"
               value={startAddress}
               onChange={(e) => onStartAddressChange(e.target.value)}
-              placeholder="T.ex. Stockholm eller adress"
+              placeholder="T.ex. Skövde, Sverige eller adress"
               className="w-full bg-slate-900 border border-slate-700/80 rounded-lg px-3.5 py-2 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500"
             />
           </div>
@@ -252,7 +259,7 @@ export const RouteCalculator: React.FC<RouteCalculatorProps> = ({
               type="text"
               value={destAddress}
               onChange={(e) => onDestAddressChange(e.target.value)}
-              placeholder="T.ex. Sälen, Göteborg eller Åre"
+              placeholder="T.ex. Pajala, Göteborg eller Malmö"
               className="w-full bg-slate-900 border border-slate-700/80 rounded-lg px-3.5 py-2 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500"
             />
           </div>
@@ -360,6 +367,11 @@ export const RouteCalculator: React.FC<RouteCalculatorProps> = ({
                   : routeResult.durationText}
               </span>
             </div>
+            {routeResult.isFallbackEstimate && (
+              <span className="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 text-[10px] font-semibold border border-emerald-500/30">
+                Resilient modell
+              </span>
+            )}
           </div>
         </div>
       )}

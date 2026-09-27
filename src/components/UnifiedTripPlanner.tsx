@@ -249,7 +249,14 @@ export const UnifiedTripPlanner: React.FC<UnifiedTripPlannerProps> = ({
       const targetDist = isRoundTrip ? Number((res.distanceMil * 2).toFixed(2)) : res.distanceMil;
       onDistanceChange(targetDist);
     } catch (err: any) {
-      setRouteError(err?.message || 'Ett fel uppstod vid beräkning av rutt. Kontrollera adresserna.');
+      const raw = String(err?.message || '');
+      let friendly = 'Ett fel uppstod vid beräkning av rutt. Kontrollera adresserna.';
+      if (raw.toLowerCase().includes('failed to fetch') || raw.toLowerCase().includes('networkerror') || raw.toLowerCase().includes('load failed')) {
+        friendly = 'Nätverksanslutningen kunde inte nå den externa karttjänsten. Kontrollera stavning eller internetuppkoppling.';
+      } else if (raw) {
+        friendly = raw;
+      }
+      setRouteError(friendly);
     } finally {
       setLoadingRoute(false);
     }
@@ -608,6 +615,14 @@ export const UnifiedTripPlanner: React.FC<UnifiedTripPlannerProps> = ({
                         ? `${formatDuration(routeResult.durationSeconds * 2)} (t&r)`
                         : routeResult.durationText}
                     </span>
+                    {routeResult.isFallbackEstimate && (
+                      <>
+                        <span>•</span>
+                        <span className="px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 text-[9px] font-semibold border border-emerald-500/30">
+                          Resilient vägnätsberäkning
+                        </span>
+                      </>
+                    )}
                   </div>
                 </div>
               </div>

@@ -1,0 +1,32 @@
+name: Connection Stability & Health Checker
+
+on:
+  schedule:
+    # Körs varje timme (på minut 30) för att hålla anslutningar aktiva och kontrollera API-hälsa
+    - cron: '30 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  check-connection:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Run connection health checker & keepalive
+        run: node scripts/check-connection-health.mjs
+
+      - name: Commit and push updated connection health status
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "Sjöö Connection Stability Bot"
+          git add public/data/connection_health.json
+          git diff --quiet && git diff --staged --quiet || (git commit -m "chore(health): automatisk kontroll av anslutningsstabilitet och API-hälsa [skip ci]" && git push)

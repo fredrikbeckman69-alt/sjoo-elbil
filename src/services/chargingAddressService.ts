@@ -954,7 +954,6 @@ export async function reverseGeocodeAddressAsync(lat: number, lon: number): Prom
     const res = await fetch(url, {
       headers: {
         'Accept': 'application/json',
-        'User-Agent': 'SjooElbilKalkylator/1.0',
       },
     });
 

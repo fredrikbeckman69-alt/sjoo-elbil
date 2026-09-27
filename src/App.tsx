@@ -4,6 +4,7 @@ import { UnifiedTripPlanner } from './components/UnifiedTripPlanner';
 import { RouteResult, calculateRoute } from './services/routing';
 import { RoadTripChecklist } from './components/RoadTripChecklist';
 import { fetchCurrentPetrolPrice, FuelPriceData, DEFAULT_FUEL_PRICE } from './services/fuelPriceService';
+import { initConnectionKeepAlive } from './services/healthCheckService';
 import { ScenarioComparison } from './components/ScenarioComparison';
 import { DatabaseManager } from './components/DatabaseManager';
 import { TripHistory } from './components/TripHistory';
@@ -68,10 +69,10 @@ export const App: React.FC = () => {
   // States som synkas med IndexedDB och molnet
   const [vehicle, setVehicleState] = useState<VehicleProfile>(DEFAULT_VEHICLE);
   const [scenarios, setScenariosState] = useState<ChargingScenario[]>(DEFAULT_SCENARIOS);
-  const [tripDistanceMil, setTripDistanceMilState] = useState<number>(42); // Default Sälen långresa
+  const [tripDistanceMil, setTripDistanceMilState] = useState<number>(0);
   const [monthlyDistanceMil, setMonthlyDistanceMilState] = useState<number>(125);
-  const [startAddress, setStartAddressState] = useState<string>('Stockholm');
-  const [destAddress, setDestAddressState] = useState<string>('Sälen');
+  const [startAddress, setStartAddressState] = useState<string>('Skövde, Sverige');
+  const [destAddress, setDestAddressState] = useState<string>('');
   const [trips, setTripsState] = useState<SavedTrip[]>([]);
   const [conditions, setConditionsState] = useState<TripConditions>(DEFAULT_TRIP_CONDITIONS);
   const [checklist, setChecklistState] = useState<ChecklistItem[]>(DEFAULT_CHECKLIST);
@@ -94,10 +95,10 @@ export const App: React.FC = () => {
       const loadPromise = Promise.all([
         getActiveVehicle(activeId),
         getScenarios(activeId),
-        getSetting<number>('tripDistanceMil', 42, activeId),
+        getSetting<number>('tripDistanceMil', 0, activeId),
         getSetting<number>('monthlyDistanceMil', 125, activeId),
-        getSetting<string>('startAddress', 'Stockholm', activeId),
-        getSetting<string>('destAddress', 'Sälen', activeId),
+        getSetting<string>('startAddress', 'Skövde, Sverige', activeId),
+        getSetting<string>('destAddress', '', activeId),
         getAllTrips(),
         getSetting<TripConditions>('tripConditions', DEFAULT_TRIP_CONDITIONS, activeId),
         getSetting<ChecklistItem[]>('tripChecklist', DEFAULT_CHECKLIST, activeId),
@@ -113,12 +114,16 @@ export const App: React.FC = () => {
       if (res) {
         const [v, sc, tDist, mDist, sAddr, dAddr, trList, cond, chk, tab, cachedFuel, roundTrip, savedWaypoints] = res;
         const finalVehicle = user?.vehicleProfile || v;
+        const finalStartAddress = (!sAddr || sAddr === 'Stockholm') ? 'Skövde, Sverige' : sAddr;
+        const finalDestAddress = dAddr === 'Sälen' ? '' : (dAddr || '');
+        const finalTripDist = (dAddr === 'Sälen' && tDist === 42) ? 0 : (tDist ?? 0);
+
         setVehicleState(finalVehicle);
         setScenariosState(sc);
-        setTripDistanceMilState(tDist);
+        setTripDistanceMilState(finalTripDist);
         setMonthlyDistanceMilState(mDist);
-        setStartAddressState(sAddr);
-        setDestAddressState(dAddr);
+        setStartAddressState(finalStartAddress);
+        setDestAddressState(finalDestAddress);
         setTripsState(trList);
         setConditionsState(cond);
         setChecklistState(chk);
@@ -170,6 +175,12 @@ export const App: React.FC = () => {
       clearInterval(interval);
       document.removeEventListener('visibilitychange', handleVisibility);
     };
+  }, []);
+
+  // Schemalagd anslutningshälsa och förvärmning av kart- och ruttmotor
+  useEffect(() => {
+    const cleanup = initConnectionKeepAlive(15);
+    return cleanup;
   }, []);
 
   // Beräkna rutt automatiskt i bakgrunden så att ruttkoordinater och korridorer alltid finns tillgängliga
