@@ -733,7 +733,7 @@ export const App: React.FC = () => {
         <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
           <div className="flex items-center gap-2 text-slate-400">
             <Zap className="w-4 h-4 text-emerald-400" />
-            <span className="font-semibold text-slate-300">Sjöö Elbilskalkylator Pro</span>
+            <span className="font-semibold text-slate-300">Elbilskalkylator</span>
             <span>• Optimerad för Långresor & Sällanförare</span>
             <span>• {kwhPer100KmToKwhPerMil(vehicle.consumptionKwhPer100Km)} kWh/mil</span>
           </div>

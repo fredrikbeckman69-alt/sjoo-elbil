@@ -373,7 +373,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
             </div>
             <div>
               <h1 className="text-base sm:text-lg font-black tracking-tight text-white leading-tight">
-                Sjöö Elbilskalkylator
+                Elbilskalkylator
               </h1>
               <p className="text-[11px] text-slate-400">
                 {mode === 'login' ? 'Slå in din pinkod på siffersatsen' : 'Skapa ny användare & bil'}
@@ -917,7 +917,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
 
       {/* Footer / Info */}
       <div className="mt-6 text-center text-xs text-slate-500 flex items-center gap-3">
-        <span>Sjöö Elbilskalkylator Pro</span>
+        <span>Elbilskalkylator</span>
         <span>•</span>
         <span>Svensk Standard</span>
         <span>•</span>

@@ -1,6 +1,6 @@
-﻿{
-  "name": "Sjöö Elbilskalkylator Pro",
-  "short_name": "Sjöö Elbil",
+{
+  "name": "Elbilskalkylator Pro",
+  "short_name": "Elbilskalkylator",
   "description": "Elbilsförbrukning, ruttplanerare, laddstationskarta och operatörspriser optimerad för svensk standard.",
   "start_url": "./",
   "scope": "./",
