@@ -35,6 +35,7 @@ import {
   formatRegnrPlate,
   cleanVehicleDisplayName,
 } from '../services/vehicleRegistryService';
+import { POPULAR_EV_MODELS, EvModelPreset, searchEvModels } from '../data/evModelsData';
 import carImage from '../assets/bil.jpg';
 
 interface LoginPageProps {
@@ -85,8 +86,10 @@ export const LoginPage: React.FC<LoginPageProps> = ({
   const [regName, setRegName] = useState<string>('');
   const [regPin, setRegPin] = useState<string>('');
   const [regPinConfirm, setRegPinConfirm] = useState<string>('');
-  const [regBatteryKwh, setRegBatteryKwh] = useState<number>(60);
-  const [regConsumption, setRegConsumption] = useState<number>(17.5);
+  const [regBatteryKwh, setRegBatteryKwh] = useState<string>('60');
+  const [regConsumption, setRegConsumption] = useState<string>('17.5');
+  const [regSelectedPresetId, setRegSelectedPresetId] = useState<string | null>(null);
+  const [showAllModels, setShowAllModels] = useState<boolean>(false);
   const [regPhotoUrl, setRegPhotoUrl] = useState<string | undefined>(undefined);
   const [isUploadingRegImage, setIsUploadingRegImage] = useState<boolean>(false);
   const [isFetchingVehicle, setIsFetchingVehicle] = useState<boolean>(false);
@@ -244,7 +247,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
     setIsSuccess(false);
   };
 
-  // Hämtning av fordonsuppgifter från registreringsnumret vid nyregistrering
+  // Hämtning av fordonsuppgifter från registreringsnumret eller modellnamn vid nyregistrering
   const handleLookupRegnr = async () => {
     const cleanPlate = regPlate.trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
     if (!cleanPlate || cleanPlate.length < 2) {
@@ -261,16 +264,41 @@ export const LoginPage: React.FC<LoginPageProps> = ({
       if (data) {
         const autoName = data.fullName || `${data.make} ${data.model}`.trim();
         setRegName(autoName);
-        if (data.batteryCapacityKwh) setRegBatteryKwh(data.batteryCapacityKwh);
-        if (data.consumptionKwh100Km) setRegConsumption(data.consumptionKwh100Km);
-        setRegLookupSuccess(`Hittade: ${autoName} (${data.batteryCapacityKwh || 60} kWh)`);
+        if (data.batteryCapacityKwh) setRegBatteryKwh(String(data.batteryCapacityKwh));
+        if (data.consumptionKwh100Km) setRegConsumption(String(data.consumptionKwh100Km));
+        setRegLookupSuccess(
+          `Hittade: ${autoName} (${data.batteryCapacityKwh || 60} kWh, ${data.consumptionKwh100Km || 17.5} kWh/100km)`
+        );
       }
-    } catch {
-      // Om inte hittas i online-registret, låt användaren fylla i manuellt
-      setRegLookupSuccess('Kunde inte nå externt register automatiskt. Ange fordonsnamn manuellt nedan.');
+    } catch (err: any) {
+      // Om lookup misslyckas i externt register, sök efter modellnamn i den lokala katalogen
+      const localMatches = searchEvModels(regPlate);
+      if (localMatches.length > 0) {
+        const match = localMatches[0];
+        setRegName(match.fullName);
+        setRegBatteryKwh(String(match.batteryCapacityKwh));
+        setRegConsumption(String(match.consumptionKwh100Km));
+        setRegSelectedPresetId(match.id);
+        setRegLookupSuccess(`Matchade modell: ${match.fullName} (${match.batteryCapacityKwh} kWh)`);
+      } else {
+        setRegError(
+          err?.message ||
+            'Kunde inte nå externt bilregister automatiskt. Välj bland populära elbilar nedan eller fyll i fälten manuellt.'
+        );
+      }
     } finally {
       setIsFetchingVehicle(false);
     }
+  };
+
+  // Snabbval av populär elbil
+  const handleSelectPreset = (preset: EvModelPreset) => {
+    setRegName(preset.fullName);
+    setRegBatteryKwh(String(preset.batteryCapacityKwh));
+    setRegConsumption(String(preset.consumptionKwh100Km));
+    setRegSelectedPresetId(preset.id);
+    setRegError(null);
+    setRegLookupSuccess(`Vald elbil: ${preset.fullName} (${preset.batteryCapacityKwh} kWh, ${preset.consumptionKwh100Km} kWh/100km)`);
   };
 
   // Slutför och spara nytt konto
@@ -294,12 +322,16 @@ export const LoginPage: React.FC<LoginPageProps> = ({
       return;
     }
 
+    // Tillåt både komma och punkt i batteri och förbrukning
+    const parsedBattery = parseFloat(regBatteryKwh.toString().replace(',', '.')) || 60;
+    const parsedConsumption = parseFloat(regConsumption.toString().replace(',', '.')) || 17.5;
+
     const finalName = cleanVehicleDisplayName(regName.trim(), cleanPlate) || 'Elbil';
     const newProfile: VehicleProfile = {
       id: cleanPlate,
       name: finalName,
-      batteryCapacityKwh: Number(regBatteryKwh) || 60,
-      consumptionKwhPer100Km: Number(regConsumption) || 17.5,
+      batteryCapacityKwh: parsedBattery,
+      consumptionKwhPer100Km: parsedConsumption,
       photoUrl: regPhotoUrl,
     };
 
@@ -331,6 +363,9 @@ export const LoginPage: React.FC<LoginPageProps> = ({
     setRegName('');
     setRegPin('');
     setRegPinConfirm('');
+    setRegBatteryKwh('60');
+    setRegConsumption('17.5');
+    setRegSelectedPresetId(null);
     setRegPhotoUrl(undefined);
     setRegLookupSuccess(null);
     setRegSuccessBanner(
@@ -715,7 +750,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                   type="button"
                   onClick={handleLookupRegnr}
                   disabled={isFetchingVehicle || !regPlate.trim()}
-                  className="px-3 py-2 bg-slate-800 hover:bg-slate-700 disabled:opacity-50 text-cyan-300 border border-cyan-500/30 rounded-xl text-xs font-bold flex items-center gap-1.5 transition cursor-pointer"
+                  className="px-3.5 py-2.5 bg-slate-800 hover:bg-slate-700 active:bg-slate-900 disabled:opacity-50 text-cyan-300 border border-cyan-500/30 rounded-xl text-xs font-bold flex items-center gap-1.5 transition cursor-pointer shadow-sm"
                 >
                   {isFetchingVehicle ? (
                     <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -726,11 +761,51 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                 </button>
               </div>
               {regLookupSuccess && (
-                <p className="text-[11px] text-cyan-300 mt-1 flex items-center gap-1">
-                  <Sparkles className="w-3 h-3 text-cyan-400" />
-                  {regLookupSuccess}
+                <p className="text-[11px] text-cyan-300 mt-1.5 flex items-center gap-1.5 bg-cyan-950/40 border border-cyan-500/30 rounded-lg px-2.5 py-1.5">
+                  <Sparkles className="w-3.5 h-3.5 text-cyan-400 flex-shrink-0" />
+                  <span>{regLookupSuccess}</span>
                 </p>
               )}
+            </div>
+
+            {/* Snabbval: Populära elbilar (1 klick) */}
+            <div className="bg-slate-950/70 border border-slate-800/90 rounded-2xl p-3 space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-slate-300 flex items-center gap-1.5">
+                  <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+                  Snabbval populära elbilar (1 klick):
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setShowAllModels(!showAllModels)}
+                  className="text-[11px] text-cyan-400 hover:text-cyan-300 font-medium cursor-pointer transition underline"
+                >
+                  {showAllModels ? 'Färre' : 'Visa fler modeller'}
+                </button>
+              </div>
+
+              <div className="flex flex-wrap gap-1.5 max-h-36 overflow-y-auto pr-1">
+                {(showAllModels ? POPULAR_EV_MODELS : POPULAR_EV_MODELS.slice(0, 8)).map((preset) => {
+                  const isSelected =
+                    regSelectedPresetId === preset.id ||
+                    (regName && regName.toLowerCase().includes(preset.model.toLowerCase()));
+                  return (
+                    <button
+                      key={preset.id}
+                      type="button"
+                      onClick={() => handleSelectPreset(preset)}
+                      className={`px-2.5 py-1.5 rounded-xl border text-[11px] font-medium transition cursor-pointer flex items-center gap-1 ${
+                        isSelected
+                          ? 'bg-cyan-500/25 border-cyan-400 text-white font-bold shadow-sm shadow-cyan-500/20 ring-1 ring-cyan-400/50'
+                          : 'bg-slate-900 border-slate-800 text-slate-300 hover:border-slate-700 hover:text-white'
+                      }`}
+                    >
+                      <span>{preset.make} {preset.model}</span>
+                      <span className="text-[10px] text-slate-400">({preset.batteryCapacityKwh} kWh)</span>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
 
             {/* Uppladdning av bild på bilen */}
@@ -789,40 +864,59 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                 type="text"
                 value={regName}
                 onChange={(e) => setRegName(e.target.value)}
-                placeholder="t.ex. Volkswagen ID.4, Polestar 2"
-                className="w-full bg-slate-950 border border-slate-700 focus:border-cyan-500 rounded-xl py-2 px-3 text-xs text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/20"
+                placeholder="t.ex. Volkswagen ID.4, Polestar 2, Tesla Model Y"
+                className="w-full bg-slate-950 border border-slate-700 focus:border-cyan-500 rounded-xl py-2 px-3 text-base sm:text-xs text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/20"
               />
             </div>
 
             {/* Batterikapacitet & Förbrukning */}
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="block text-[11px] font-medium text-slate-300 mb-1">
-                  Batteri (kWh):
+                <label className="block text-xs font-medium text-slate-300 mb-1 flex items-center justify-between">
+                  <span>Batteri (kWh):</span>
+                  <span className="text-[10px] text-cyan-400 font-normal">redigerbar</span>
                 </label>
-                <input
-                  type="number"
-                  step="0.1"
-                  min="20"
-                  max="150"
-                  value={regBatteryKwh}
-                  onChange={(e) => setRegBatteryKwh(parseFloat(e.target.value) || 60)}
-                  className="w-full bg-slate-950 border border-slate-700 focus:border-cyan-500 rounded-xl py-2 px-3 text-xs text-white focus:outline-none focus:ring-2 focus:ring-cyan-500/20"
-                />
+                <div className="relative">
+                  <input
+                    type="text"
+                    inputMode="decimal"
+                    pattern="[0-9]*[.,]?[0-9]*"
+                    value={regBatteryKwh}
+                    onChange={(e) => setRegBatteryKwh(e.target.value)}
+                    placeholder="60"
+                    className="w-full bg-slate-950 border border-slate-700 focus:border-cyan-500 rounded-xl py-2 pl-3 pr-10 text-base sm:text-xs text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/20 font-mono-numbers"
+                  />
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-slate-500 font-medium pointer-events-none">
+                    kWh
+                  </span>
+                </div>
+                <p className="text-[10px] text-slate-500 mt-1">t.ex. 58, 64, 75, 77 el. 82</p>
               </div>
+
               <div>
-                <label className="block text-[11px] font-medium text-slate-300 mb-1">
-                  Förbrukning (kWh/100km):
+                <label className="block text-xs font-medium text-slate-300 mb-1 flex items-center justify-between">
+                  <span>Snittförbrukning:</span>
+                  <span className="text-[10px] text-cyan-400 font-normal">redigerbar</span>
                 </label>
-                <input
-                  type="number"
-                  step="0.1"
-                  min="10"
-                  max="35"
-                  value={regConsumption}
-                  onChange={(e) => setRegConsumption(parseFloat(e.target.value) || 17.5)}
-                  className="w-full bg-slate-950 border border-slate-700 focus:border-cyan-500 rounded-xl py-2 px-3 text-xs text-white focus:outline-none focus:ring-2 focus:ring-cyan-500/20"
-                />
+                <div className="relative">
+                  <input
+                    type="text"
+                    inputMode="decimal"
+                    pattern="[0-9]*[.,]?[0-9]*"
+                    value={regConsumption}
+                    onChange={(e) => setRegConsumption(e.target.value)}
+                    placeholder="17.5"
+                    className="w-full bg-slate-950 border border-slate-700 focus:border-cyan-500 rounded-xl py-2 pl-3 pr-16 text-base sm:text-xs text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/20 font-mono-numbers"
+                  />
+                  <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[9px] text-slate-500 font-medium pointer-events-none">
+                    kWh/100km
+                  </span>
+                </div>
+                <p className="text-[10px] text-slate-500 mt-1">
+                  {regConsumption && !isNaN(parseFloat(regConsumption.replace(',', '.')))
+                    ? `≈ ${(parseFloat(regConsumption.replace(',', '.')) / 10).toFixed(2)} kWh/mil`
+                    : 't.ex. 16.5 eller 18.0'}
+                </p>
               </div>
             </div>
 

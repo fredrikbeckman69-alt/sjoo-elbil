@@ -37,9 +37,14 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
   onClose,
   onAccountUpdated,
 }) => {
-  // Profilfält
   const [ownerName, setOwnerName] = useState<string>(currentUser.ownerName || '');
   const [vehicleName, setVehicleName] = useState<string>(cleanVehicleDisplayName(currentUser.name, currentUser.regnr));
+  const [batteryKwh, setBatteryKwh] = useState<string>(
+    currentUser.vehicleProfile?.batteryCapacityKwh ? String(currentUser.vehicleProfile.batteryCapacityKwh) : '60'
+  );
+  const [consumption, setConsumption] = useState<string>(
+    currentUser.vehicleProfile?.consumptionKwhPer100Km ? String(currentUser.vehicleProfile.consumptionKwhPer100Km) : '17.5'
+  );
   const [photoUrl, setPhotoUrl] = useState<string | undefined>(currentUser.photoUrl);
   const [electricityArea, setElectricityArea] = useState<'SE1' | 'SE2' | 'SE3' | 'SE4'>(currentUser.electricityArea || 'SE3');
   const [voltageArchitecture, setVoltageArchitecture] = useState<'400V' | '800V'>(currentUser.vehicleProfile?.voltageArchitecture || '400V');
@@ -99,6 +104,11 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
     setFeedback(null);
 
     try {
+      const parsedBattery =
+        parseFloat(batteryKwh.replace(',', '.')) || currentUser.vehicleProfile?.batteryCapacityKwh || 60;
+      const parsedConsumption =
+        parseFloat(consumption.replace(',', '.')) || currentUser.vehicleProfile?.consumptionKwhPer100Km || 17.5;
+
       let updated = await updateAccountProfile(currentUser.id, {
         ownerName: ownerName.trim(),
         name: vehicleName.trim() || currentUser.name,
@@ -107,6 +117,8 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
         activeMemberships,
         vehicleProfile: {
           ...currentUser.vehicleProfile,
+          batteryCapacityKwh: parsedBattery,
+          consumptionKwhPer100Km: parsedConsumption,
           voltageArchitecture,
         },
       });
@@ -271,7 +283,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
                 value={ownerName}
                 onChange={(e) => setOwnerName(e.target.value)}
                 placeholder="t.ex. Markus Sjöö"
-                className="w-full bg-slate-950 border border-slate-700 focus:border-cyan-500 rounded-xl py-2 px-3 text-xs text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/20"
+                className="w-full bg-slate-950 border border-slate-700 focus:border-cyan-500 rounded-xl py-2 px-3 text-base sm:text-xs text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/20"
               />
             </div>
 
@@ -284,8 +296,59 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
                 value={vehicleName}
                 onChange={(e) => setVehicleName(e.target.value)}
                 placeholder="t.ex. Cupra Born 58"
-                className="w-full bg-slate-950 border border-slate-700 focus:border-cyan-500 rounded-xl py-2 px-3 text-xs text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/20"
+                className="w-full bg-slate-950 border border-slate-700 focus:border-cyan-500 rounded-xl py-2 px-3 text-base sm:text-xs text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/20"
               />
+            </div>
+          </div>
+
+          {/* 2b. Batterikapacitet & Förbrukning */}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-medium text-slate-300 mb-1 flex items-center justify-between">
+                <span>Batteri (kWh):</span>
+                <span className="text-[10px] text-cyan-400 font-normal">redigerbar</span>
+              </label>
+              <div className="relative">
+                <input
+                  type="text"
+                  inputMode="decimal"
+                  pattern="[0-9]*[.,]?[0-9]*"
+                  value={batteryKwh}
+                  onChange={(e) => setBatteryKwh(e.target.value)}
+                  placeholder="60"
+                  className="w-full bg-slate-950 border border-slate-700 focus:border-cyan-500 rounded-xl py-2 pl-3 pr-10 text-base sm:text-xs text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/20 font-mono-numbers"
+                />
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-slate-500 font-medium pointer-events-none">
+                  kWh
+                </span>
+              </div>
+              <p className="text-[10px] text-slate-500 mt-1">t.ex. 58, 64, 75, 77 el. 82</p>
+            </div>
+
+            <div>
+              <label className="block text-xs font-medium text-slate-300 mb-1 flex items-center justify-between">
+                <span>Snittförbrukning:</span>
+                <span className="text-[10px] text-cyan-400 font-normal">redigerbar</span>
+              </label>
+              <div className="relative">
+                <input
+                  type="text"
+                  inputMode="decimal"
+                  pattern="[0-9]*[.,]?[0-9]*"
+                  value={consumption}
+                  onChange={(e) => setConsumption(e.target.value)}
+                  placeholder="17.5"
+                  className="w-full bg-slate-950 border border-slate-700 focus:border-cyan-500 rounded-xl py-2 pl-3 pr-16 text-base sm:text-xs text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/20 font-mono-numbers"
+                />
+                <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[9px] text-slate-500 font-medium pointer-events-none">
+                  kWh/100km
+                </span>
+              </div>
+              <p className="text-[10px] text-slate-500 mt-1">
+                {consumption && !isNaN(parseFloat(consumption.replace(',', '.')))
+                  ? `≈ ${(parseFloat(consumption.replace(',', '.')) / 10).toFixed(2)} kWh/mil`
+                  : 't.ex. 16.5 eller 18.0'}
+              </p>
             </div>
           </div>
 

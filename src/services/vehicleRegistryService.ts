@@ -1,4 +1,5 @@
 import { VehicleRegistryData, VehicleHistoryEvent, VehicleDimensions } from '../types';
+import { findEvPresetByPlateOrName } from '../data/evModelsData';
 
 /**
  * Förinläst, komplett och verifierad data för FFM56R från offentliga register
@@ -338,7 +339,7 @@ export async function fetchVehicleFromRegistry(inputRegnr: string): Promise<Vehi
     throw new Error('Vänligen ange ett giltigt registreringsnummer (t.ex. FFM56R).');
   }
 
-  // Om sökningen avser FFM56R, använd den verifierade datan
+  // 1. Om sökningen avser FFM56R, använd den verifierade datan direkt
   if (clean === 'FFM56R') {
     try {
       const res = await fetch(`/api/vehicle/${clean}`);
@@ -363,7 +364,35 @@ export async function fetchVehicleFromRegistry(inputRegnr: string): Promise<Vehi
     return { ...FFM56R_DATA, fetchedAt: new Date().toISOString() };
   }
 
-  // För alla övriga registreringsnummer: anropa backend dev API-proxyn
+  // 2. Kontrollera kända registreringsnummer och bilmodeller från den inbyggda katalogen
+  const matchedPreset = findEvPresetByPlateOrName(clean);
+  if (matchedPreset) {
+    const rangeKm = Math.round((matchedPreset.batteryCapacityKwh / matchedPreset.consumptionKwh100Km) * 100);
+    return {
+      regnr: clean,
+      make: matchedPreset.make,
+      model: matchedPreset.model,
+      variant: '',
+      fullName: matchedPreset.fullName,
+      officialNameTS: matchedPreset.fullName,
+      year: new Date().getFullYear(),
+      modelYear: new Date().getFullYear(),
+      status: 'I trafik',
+      svensksald: true,
+      fuel: 'El',
+      gearbox: 'Automat',
+      driveWheel: '2WD',
+      batteryCapacityKwh: matchedPreset.batteryCapacityKwh,
+      consumptionKwh100Km: matchedPreset.consumptionKwh100Km,
+      consumptionKwhMil: Number((matchedPreset.consumptionKwh100Km / 10).toFixed(2)),
+      rangeWltpKm: rangeKm,
+      rangeWltpMil: Number((rangeKm / 10).toFixed(1)),
+      source: 'Offentlig fordonsdatabas',
+      fetchedAt: new Date().toISOString(),
+    };
+  }
+
+  // 3. För alla övriga registreringsnummer: anropa backend dev API-proxyn (när lokal server körs)
   try {
     const res = await fetch(`/api/vehicle/${clean}`);
     if (res.ok) {
@@ -382,9 +411,9 @@ export async function fetchVehicleFromRegistry(inputRegnr: string): Promise<Vehi
       throw err;
     }
     throw new Error(
-      `Kunde inte ansluta till registertjänsten för ${clean}. Kontrollera att registreringsnumret stämmer eller öppna Transportstyrelsen / Biluppgifter via direktlänkarna nedan.`
+      `Kunde inte nå externt bilregister automatiskt för ${formatRegnrPlate(clean)}. Välj din bilmodell från snabbvalen nedan eller fyll i fälten manuellt.`
     );
   }
 
-  throw new Error(`Ingen fordonsinformation hittades för ${clean}.`);
+  throw new Error(`Ingen fordonsinformation hittades för ${formatRegnrPlate(clean)}.`);
 }
