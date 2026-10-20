@@ -1,42 +1,42 @@
 {
-  "updatedAt": "2026-10-20T07:51:22.800Z",
-  "overallStatus": "stable",
-  "summary": "Samtliga nätverksresurser och externa API:er fungerar optimalt.",
+  "updatedAt": "2026-10-20T13:46:29.109Z",
+  "overallStatus": "acceptable",
+  "summary": "Vissa externa tjänster har förhöjd svarstid. Lokal svensk ortsdatabas och syntetisk vägnätsmodell hanterar rutter automatiskt utan störning.",
   "activeFallbackStrategy": "Multi-tier fallback aktiv: 1. Lokal ortsdatabas -> 2. LocalStorage -> 3. Photon -> 4. Haversine 1.25x vägmodell",
   "endpoints": [
     {
       "name": "OSRM Route Engine",
       "status": "healthy",
       "statusCode": 200,
-      "latencyMs": 1435,
+      "latencyMs": 1376,
       "error": null
     },
     {
       "name": "Photon Geocoding (Komoot)",
-      "status": "healthy",
-      "statusCode": 200,
-      "latencyMs": 671,
-      "error": null
+      "status": "unreachable",
+      "statusCode": 0,
+      "latencyMs": 6001,
+      "error": "This operation was aborted"
     },
     {
       "name": "Nominatim Geocoding (OSM)",
       "status": "healthy",
       "statusCode": 200,
-      "latencyMs": 527,
+      "latencyMs": 168,
       "error": null
     },
     {
       "name": "User Data Cloud Sync (Restful API Dev)",
       "status": "healthy",
       "statusCode": 200,
-      "latencyMs": 366,
+      "latencyMs": 626,
       "error": null
     },
     {
       "name": "GitHub Pages Production",
       "status": "healthy",
       "statusCode": 200,
-      "latencyMs": 158,
+      "latencyMs": 173,
       "error": null
     }
   ]
